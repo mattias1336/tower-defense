@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tower Defense Completo</title>
+<style>
+  :root{
+    --bg:#0b1220;--panel:#0f1724;--accent:#7dd3fc;--muted:#94a3b8;--danger:#ef4444;--success:#22c55e;
+  }
+  html,body{
+    height:100%;
+    margin:0;
+    font-family: Inter, system-ui, Arial, sans-serif;
+    background: var(--bg);
+    color:#e6eef6;
+  }
+  #game{
+    display:grid;
+    grid-template-columns:820px 340px;
+    gap:18px;
+    padding:18px;
+    max-width:1180px;
+    margin:20px auto;
+    user-select:none;
+  }
+  canvas{
+    background:#0b1220;
+    border-radius:12px;
+    box-shadow: 0 6px 24px rgba(0,0,0,.6);
+    display:block;
+  }
+  .panel{
+    background: var(--panel);
+    padding:14px;
+    border-radius:12px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.02);
+    display:flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  h2{
+    margin:0 0 8px 0;
+    font-size:16px;
+  }
+  .row{
+    display:flex;
+    gap:8px;
+    align-items:center;
+  }
+  button{
+    background: var(--accent);
+    border:none;
+    padding:8px 10px;
+    border-radius:8px;
+    cursor:pointer;
+    color:#000;
+    font-weight:bold;
+    user-select:none;
+  }
+  button:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  .muted{
+    color: var(--muted);
+    font-size: 13px;
+  }
+  #upgradeMiniPanel {
+    position: absolute;
+    background: #0f1724dd;
+    border-radius: 12px;
+    padding: 12px;
+    width: 260px;
+    box-shadow: 0 8px 16px #0a243399;
+    display: none;
+    z-index: 1000;
+    color: #e6eef6;
+    font-size: 14px;
+  }
+  .upgrade-btn {
+    background:#1e293b;
+    color:white;
+    margin:6px 0;
+    width:100%;
+    border:none;
+    border-radius:6px;
+    padding:8px;
+    cursor:pointer;
+  }
+  .upgrade-btn:disabled {
+    background: #334155;
+    cursor: not-allowed;
+  }
+  #log {
+    height: 180px;
+    overflow-y: auto;
+    background: #07131a;
+    padding: 8px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-family: monospace;
+    user-select:none;
+  }
+</style>
+</head>
+<body>
+<div id="game">
+  <div>
+    <canvas id="c" width="820" height="600"></canvas>
+  </div>
+  <div class="panel">
+    <h2>Informações</h2>
+    <div class="muted small">Wave: <span id="wave">0</span> / <span id="maxWave">60+</span></div>
+    <div class="muted small">Vida da base: <span id="lives">20</span></div>
+    <div class="muted small">Moedas: <span id="gold">100</span></div>
+    <div class="row">
+      <button id="start">Iniciar/Próxima Wave</button>
+      <button id="speed">x1</button>
+      <button id="auto">Auto: Off</button>
+    </div>
+    <h2>Construir torres</h2>
+    <div id="towers"></div>
+    <h2>Torre Selecionada</h2>
+    <div id="selInfo" class="muted small">Clique no mapa para construir ou selecionar uma torre.</div>
+    <div id="upgradePanel"></div>
+    <button id="sell" class="muted small" disabled>Vender torre (50%)</button>
+    <h2>Mensagens</h2>
+    <div id="log"></div>
+  </div>
+</div>
+<div id="upgradeMiniPanel"></div>
+<script>
+(() => {
+  const canvas = document.getElementById("c");
+  const ctx = canvas.getContext("2d");
+
+  const TILE_SIZE = 40;
+  const MAP_COLS = 20;
+  const MAP_ROWS = 15;
+
+  // Caminho dos inimigos (posições em grid)
+  const PATH = [
+    {x:0,y:7},{x:1,y:7},{x:2,y:7},{x:3,y:7},{x:4,y:7},
+    {x:4,y:6},{x:4,y:5},{x:5,y:5},{x:6,y:5},{x:7,y:5},
+    {x:7,y:6},{x:7,y:7},{x:7,y:8},{x:8,y:8},{x:9,y:8},
+    {x:10,y:8},{x:11,y:8},{x:12,y:8},{x:13,y:8},{x:14,y:8},
+    {x:15,y:8},{x:16,y:8},{x:17,y:8},{x:18,y:8},{x:19,y:8},
+  ];
+
+  // DOM elements
+  const waveEl = document.getElementById("wave");
+  const maxWaveEl = document.getElementById("maxWave");
+  const livesEl = document.getElementById("lives");
+  const goldEl = document.getElementById("gold");
+  const startBtn = document.getElementById("start");
+  const speedBtn = document.getElementById("speed");
+  const autoBtn = document.getElementById("auto");
+  const towersDiv = document.getElementById("towers");
+  const selInfo = document.getElementById("selInfo");
+  const upgradePanel = document.getElementById("upgradePanel");
+  const sellBtn = document.getElementById("sell");
+  const logDiv = document.getElementById("log");
+  const upgradeMiniPanel = document.getElementById("upgradeMiniPanel");
+
+  // Game state
+  let wave = 0;
+  const maxWave = 60;
+  let lives = 20;
+  let gold = 100;
+  let enemies = [];
+  let bullets = [];
+  let towers = [];
+  let selectedTower = null;
+  let autoMode = false;
+  let speedMultiplier = 1;
+
+  // Sounds (simple beep placeholders)
+  const soundShoot = new Audio("https://actions.google.com/sounds/v1/impacts/wood_plank_flicks.ogg");
+  const soundEnemyDie = new Audio("https://actions.google.com/sounds/v1/cartoon/cartoon_boing.ogg");
+  const soundBuild = new Audio("https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg");
+
+  // Utility functions
+  function log(message) {
+    const d = new Date();
+    logDiv.innerHTML += `[${d.toLocaleTimeString()}] ${message}<br>`;
+    logDiv.scrollTop = logDiv.scrollHeight;
+  }
+  function distance(x1,y1,x2,y2){ return Math.hypot(x2 - x1, y2 - y1); }
+
+  // Classes
+  class Enemy {
+    constructor(wave){
+      this.pathIndex = 0;
+      this.speed = 1 + wave*0.02; // aumenta com wave
+      this.maxHp = 10 + wave*5;
+      this.hp = this.maxHp;
+      this.x = PATH[0].x * TILE_SIZE + TILE_SIZE/2;
+      this.y = PATH[0].y * TILE_SIZE + TILE_SIZE/2;
+      this.radius = 12;
+      this.isElite = false;
+      this.color = "#f87171";
+      this.damage = 1;
+      this.dmgText = null;
+    }
+    move(){
+      if(this.pathIndex >= PATH.length -1) return false;
+      const target = PATH[this.pathIndex+1];
+      const targetX = target.x * TILE_SIZE + TILE_SIZE/2;
+      const targetY = target.y * TILE_SIZE + TILE_SIZE/2;
+      const dx = targetX - this.x;
+      const dy = targetY - this.y;
+      const dist = Math.sqrt(dx*dx+dy*dy);
+      if(dist < this.speed){
+        this.x = targetX;
+        this.y = targetY;
+        this.pathIndex++;
+      } else {
+        this.x += dx/dist * this.speed;
+        this.y += dy/dist * this.speed;
+      }
+      return true;
+    }
+    draw(){
+      ctx.fillStyle = this.color;
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2);
+      ctx.fill();
+      // HP bar
+      const barWidth = 30;
+      const barHeight = 6;
+      ctx.fillStyle = "#555";
+      ctx.fillRect(this.x - barWidth/2, this.y - this.radius - 15, barWidth, barHeight);
+      ctx.fillStyle = "#22c55e";
+      ctx.fillRect(this.x - barWidth/2, this.y - this.radius - 15, barWidth*(this.hp/this.maxHp), barHeight);
+      // dano causado (dmgText)
+      if(this.dmgText && Date.now() - this.dmgText.time < 600){
+        ctx.fillStyle = `rgba(255,0,0,${1 - (Date.now() - this.dmgText.time)/600})`;
+        ctx.font = "bold 16px Arial";
+        ctx.fillText("-" + this.dmgText.amount, this.x - 10, this.y - this.radius - 25 - ((Date.now() - this.dmgText.time)/50));
+      }
+    }
+    takeDamage(amount){
+      this.hp -= amount;
+      this.dmgText = {amount: amount, time: Date.now()};
+      if(this.hp <= 0){
+        return true;
+      }
+      return false;
+    }
+  }
+
+  class Tower {
+    constructor(x,y,type){
+      this.x = x;
+      this.y = y;
+      this.type = type; // "basic", "fast", "heavy"
+      this.level = 1;
+      this.range = 100 + (type === "fast"? 20 : 0);
+      this.damage = 5 + (type === "heavy"? 10 : 0);
+      this.attackSpeed = 60; // frames between shots, default 60
+      if(type === "fast") this.attackSpeed = 25;
+      if(type === "heavy") this.attackSpeed = 90;
+      this.lastShot = 0;
+      this.critChance = 0.1;
+      this.critDamage = 1.5;
+      this.sellPrice = 50;
+    }
+    canShoot(frameCount){
+      return frameCount - this.lastShot >= this.attackSpeed;
+    }
+    shoot(target, frameCount){
+      this.lastShot = frameCount;
+      let dmg = this.damage;
+      if(Math.random() < this.critChance) {
+        dmg = Math.floor(dmg * this.critDamage);
+      }
+      bullets.push(new Bullet(this.x, this.y, target, dmg));
+      soundShoot.play();
+    }
+    draw(){
+      // torre simples
+      ctx.fillStyle = this.type === "basic"? "#3b82f6" : (this.type === "fast"? "#facc15" : "#ef4444");
+      ctx.beginPath();
+      ctx.rect(this.x - TILE_SIZE/2 + 8, this.y - TILE_SIZE/2 + 8, TILE_SIZE - 16, TILE_SIZE - 16);
+      ctx.fill();
+      // desenha círculo de alcance se selecionada
+      if(selectedTower === this){
+        ctx.strokeStyle = "#7dd3fcaa";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.range, 0, Math.PI*2);
+        ctx.stroke();
+      }
+    }
+  }
+
+  class Bullet {
+    constructor(x,y,target,damage){
+      this.x = x;
+      this.y = y;
+      this.target = target;
+      this.damage = damage;
+      this.speed = 8;
+      this.radius = 4;
+    }
+    move(){
+      const dx = this.target.x - this.x;
+      const dy = this.target.y - this.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if(dist < this.speed){
+        this.x = this.target.x;
+        this.y = this.target.y;
+        return true; // atingiu o alvo
+      }
+      this.x += dx/dist * this.speed;
+      this.y += dy/dist * this.speed;
+      return false;
+    }
+    draw(){
+      ctx.fillStyle = "#60a5fa";
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+
+  // Construção das torres disponíveis
+  const towerTypes = [
+    {id:"basic", name:"Básica", cost:50, description:"Torre equilibrada, dano e alcance médios."},
+    {id:"fast", name:"Rápida", cost:70, description:"Atira rápido com alcance menor."},
+    {id:"heavy", name:"Pesada", cost:100, description:"Alto dano e alcance, mas lento."}
+  ];
+
+  // Estado e funções principais
+  let frameCount = 0;
+  let waveInProgress = false;
+
+  // Iniciar painel de torres para construir
+  function initTowerButtons(){
+    towersDiv.innerHTML = "";
+    towerTypes.forEach(t => {
+      const btn = document.createElement("button");
+      btn.className = "tower-btn";
+      btn.textContent = `${t.name} - ${t.cost} moedas`;
+      btn.title = t.description;
+      btn.onclick = () => {
+        if(gold >= t.cost){
+          selectedTower = {buildingType:t.id};
+          selInfo.textContent = `Clique no mapa para construir a torre ${t.name}.`;
+          upgradePanel.innerHTML = "";
+          sellBtn.disabled = true;
+          upgradeMiniPanel.style.display = "none";
+        } else {
+          alert("Moedas insuficientes!");
+        }
+      };
+      towersDiv.appendChild(btn);
+    });
+  }
+  initTowerButtons();
+
+  // Desenha o mapa e caminho
+  function drawPath() {
+    ctx.fillStyle = "#0b1220"; // fundo
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    for(let i=0; i<PATH.length; i++){
+      const p = PATH[i];
+      ctx.fillStyle = "#3b82f6"; // azul caminho
+      ctx.strokeStyle = "#1e40af";
+      ctx.lineWidth = 3;
+      ctx.fillRect(p.x * TILE_SIZE, p.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+      ctx.strokeRect(p.x * TILE_SIZE, p.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+    }
+  }
+
+  // Procurar inimigo no alcance da torre
+  function getEnemyInRange(tower){
+    for(const e of enemies){
+      const dist = distance(tower.x, tower.y, e.x, e.y);
+      if(dist <= tower.range && e.hp > 0){
+        return e;
+      }
+    }
+    return null;
+  }
+
+  // Criar inimigos da wave
+  function spawnWave(waveNumber){
+    let count = 5 + waveNumber * 2;
+    let spawned = 0;
+    const spawnInterval = 800 / speedMultiplier;
+    const spawnTimer = setInterval(() => {
+      if(spawned >= count){
+        clearInterval(spawnTimer);
+        waveInProgress = true;
+        return;
+      }
+      const enemy = new Enemy(waveNumber);
+      enemies.push(enemy);
+      spawned++;
+    }, spawnInterval);
+  }
+
+  // Atualiza status na interface
+  function updateUI(){
+    waveEl.textContent = wave;
+    livesEl.textContent = lives;
+    goldEl.textContent = gold;
+  }
+
+  // Seleciona torre ou construção
+  function selectTowerAt(x,y){
+    selectedTower = null;
+    for(const t of towers){
+      if(Math.abs(t.x - x) < TILE_SIZE/2 && Math.abs(t.y - y) < TILE_SIZE/2){
+        selectedTower = t;
+        break;
+      }
+    }
+    if(selectedTower){
+      showUpgradePanel(selectedTower);
+      selInfo.textContent = `Torre selecionada (${selectedTower.type}, nível ${selectedTower.level})`;
+      sellBtn.disabled = false;
+    } else if(selectedTower && selectedTower.buildingType) {
+      selInfo.textContent = `Clique para construir a torre ${selectedTower.buildingType}`;
+    } else {
+      selInfo.textContent = "Clique no mapa para construir ou selecionar uma torre.";
+      upgradePanel.innerHTML = "";
+      sellBtn.disabled = true;
+      upgradeMiniPanel.style.display = "none";
+    }
+  }
+
+  // Construir torre na posição clicada
+  function buildTowerAt(x,y){
+    if(!selectedTower || !selectedTower.buildingType) return false;
+    // Checar se já existe torre nessa posição
+    for(const t of towers){
+      if(Math.abs(t.x - x) < TILE_SIZE/2 && Math.abs(t.y - y) < TILE_SIZE/2) {
+        alert("Já existe torre nessa posição!");
+        return false;
+      }
+    }
+    // Checar se posição não está no caminho
+    const gridX = Math.floor(x / TILE_SIZE);
+    const gridY = Math.floor(y / TILE_SIZE);
+    if(PATH.some(p => p.x === gridX && p.y === gridY)){
+      alert("Não pode construir no caminho!");
+      return false;
+    }
+    // Construir torre
+    const tdata = towerTypes.find(t=>t.id === selectedTower.buildingType);
+    if(gold < tdata.cost){
+      alert("Moedas insuficientes!");
+      return false;
+    }
+    gold -= tdata.cost;
+    const newTower = new Tower(gridX * TILE_SIZE + TILE_SIZE/2, gridY * TILE_SIZE + TILE_SIZE/2, tdata.id);
+    towers.push(newTower);
+    selectedTower = newTower;
+    updateUI();
+    showUpgradePanel(newTower);
+    log(`Torre ${tdata.name} construída.`);
+    soundBuild.play();
+    return true;
+  }
+
+  // Mostrar painel de upgrades para a torre
+  function showUpgradePanel(tower){
+    upgradeMiniPanel.style.display = "block";
+    upgradeMiniPanel.style.left = (tower.x + 30) + "px";
+    upgradeMiniPanel.style.top = (tower.y - 80) + "px";
+    upgradeMiniPanel.innerHTML = `
+      <strong>Upgrades Torre (${tower.type.toUpperCase()})</strong><br>
+      Nível: ${tower.level}<br>
+      Alcance: ${tower.range.toFixed(0)}<br>
+      Dano: ${tower.damage}<br>
+      Velocidade de Ataque: ${(60/tower.attackSpeed).toFixed(2)} tiros/s<br>
+      Chance Crítica: ${(tower.critChance*100).toFixed(0)}%<br>
+      Dano Crítico: x${tower.critDamage.toFixed(2)}<br>
+      <button id="upgradeRange" class="upgrade-btn">Melhorar Alcance (30 moedas)</button>
+      <button id="upgradeDamage" class="upgrade-btn">Melhorar Dano (40 moedas)</button>
+      <button id="upgradeAttackSpeed" class="upgrade-btn">Melhorar Velocidade (50 moedas)</button>
+      <button id="upgradeCritChance" class="upgrade-btn">Melhorar Crit Chance (25 moedas)</button>
+      <button id="upgradeCritDamage" class="upgrade-btn">Melhorar Crit Dano (35 moedas)</button>
+    `;
+
+    // Definir funções dos botões
+    document.getElementById("upgradeRange").onclick = () => upgradeTower(tower, "range", 30, 10);
+    document.getElementById("upgradeDamage").onclick = () => upgradeTower(tower, "damage", 40, 5);
+    document.getElementById("upgradeAttackSpeed").onclick = () => upgradeTower(tower, "attackSpeed", 50, -5);
+    document.getElementById("upgradeCritChance").onclick = () => upgradeTower(tower, "critChance", 25, 0.05);
+    document.getElementById("upgradeCritDamage").onclick = () => upgradeTower(tower, "critDamage", 35, 0.25);
+  }
+
+  // Função para upgrade de torre
+  function upgradeTower(tower, stat, cost, increment){
+    if(gold < cost){
+      alert("Moedas insuficientes!");
+      return;
+    }
+    gold -= cost;
+    switch(stat){
+      case "range":
+        tower.range += increment;
+        break;
+      case "damage":
+        tower.damage += increment;
+        break;
+      case "attackSpeed":
+        tower.attackSpeed = Math.max(5, tower.attackSpeed + increment); // increment negativo = melhora (menos frames)
+        break;
+      case "critChance":
+        tower.critChance = Math.min(1, tower.critChance + increment);
+        break;
+      case "critDamage":
+        tower.critDamage += increment;
+        break;
+    }
+    tower.level++;
+    updateUI();
+    showUpgradePanel(tower);
+    log(`Torre ${stat} melhorada.`);
+  }
+
+  // Vender torre
+  sellBtn.onclick = () => {
+    if(!selectedTower) return;
+    gold += Math.floor(selectedTower.sellPrice * 0.5);
+    towers = towers.filter(t=>t !== selectedTower);
+    log("Torre vendida por " + Math.floor(selectedTower.sellPrice * 0.5) + " moedas.");
+    selectedTower = null;
+    upgradeMiniPanel.style.display = "none";
+    sellBtn.disabled = true;
+    updateUI();
+    selInfo.textContent = "Clique no mapa para construir ou selecionar uma torre.";
+    upgradePanel.innerHTML = "";
+  };
+
+  // Eventos clique no canvas
+  canvas.addEventListener("click", e => {
+    const rect = canvas.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+
+    if(selectedTower && selectedTower.buildingType){
+      // Construir torre
+      if(buildTowerAt(clickX, clickY)){
+        selectedTower = null;
+        selInfo.textContent = "Torre construída!";
+      }
+    } else {
+      // Selecionar torre existente
+      selectTowerAt(clickX, clickY);
+    }
+  });
+
+  // Controle wave
+  startBtn.onclick = () => {
+    if(waveInProgress) return;
+    wave++;
+    if(wave > maxWave){
+      alert("Parabéns! Você venceu todas as waves!");
+      wave = maxWave;
+      return;
+    }
+    spawnWave(wave);
+    updateUI();
+  };
+
+  // Controle speed
+  speedBtn.onclick = () => {
+    if(speedMultiplier === 1){
+      speedMultiplier = 3;
+      speedBtn.textContent = "x3";
+    } else {
+      speedMultiplier = 1;
+      speedBtn.textContent = "x1";
+    }
+  };
+
+  // Controle auto wave
+  autoBtn.onclick = () => {
+    autoMode = !autoMode;
+    autoBtn.textContent = "Auto: " + (autoMode ? "On" : "Off");
+  };
+
+  // Função principal de update e desenho
+  function gameLoop(){
+    frameCount++;
+
+    drawPath();
+
+    // Atualiza inimigos
+    for(let i = enemies.length-1; i>=0; i--){
+      let e = enemies[i];
+      let alive = e.move();
+      e.draw();
+
+      if(!alive){ // inimigo chegou no fim
+        enemies.splice(i,1);
+        lives--;
+        updateUI();
+        log("Um inimigo passou! Vida da base: "+lives);
+        if(lives <= 0){
+          alert("Você perdeu! Game Over.");
+          resetGame();
+          return;
+        }
+      }
+    }
+
+    // Atualiza balas
+    for(let i = bullets.length-1; i>=0; i--){
+      let b = bullets[i];
+      let hit = b.move();
+      b.draw();
+      if(hit){
+        if(b.target.takeDamage(b.damage)){
+          // inimigo morreu
+          soundEnemyDie.play();
+          gold += 10;
+          updateUI();
+          log("Inimigo derrotado! +10 moedas.");
+          enemies = enemies.filter(en => en !== b.target);
+        }
+        bullets.splice(i,1);
+      }
+    }
+
+    // Torres atiram se possível
+    for(const t of towers){
+      if(enemies.length === 0) continue;
+      if(t.canShoot(frameCount)){
+        const target = getEnemyInRange(t);
+        if(target){
+          t.shoot(target, frameCount);
+        }
+      }
+      t.draw();
+    }
+
+    // Verifica se wave terminou
+    if(waveInProgress && enemies.length === 0){
+      waveInProgress = false;
+      log(`Wave ${wave} finalizada!`);
+      if(autoMode){
+        startBtn.click();
+      }
+    }
+
+    requestAnimationFrame(gameLoop);
+  }
+
+  // Reset game
+  function resetGame(){
+    wave = 0;
+    lives = 20;
+    gold = 100;
+    enemies = [];
+    bullets = [];
+    towers = [];
+    selectedTower = null;
+    waveInProgress = false;
+    updateUI();
+    selInfo.textContent = "Clique no mapa para construir ou selecionar uma torre.";
+    upgradePanel.innerHTML = "";
+    upgradeMiniPanel.style.display = "none";
+    sellBtn.disabled = true;
+    log("Jogo reiniciado.");
+  }
+
+  // Inicializa UI e game
+  updateUI();
+  resetGame();
+
+  // Exibe upgrade mini painel no mouseover da torre selecionada
+  // Já mostrado no clique de torre pelo upgradeMiniPanel.style.left/top
+
+  // Escuta para esconder o painel se clicar fora
+  window.addEventListener("click", (e) => {
+    if(!upgradeMiniPanel.contains(e.target) && e.target !== canvas && !e.target.classList.contains("upgrade-btn")){
+      upgradeMiniPanel.style.display = "none";
+    }
+  });
+
+  // Inicia loop principal
+  gameLoop();
+
+})();
+</script>
+</body>
+</html>
