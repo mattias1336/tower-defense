@@ -1,107 +1,28 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Tower Defense Completo</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Tower Defense — Upgrades de Caminho + Resistências + Fazenda</title>
 <style>
   :root{
-    --bg:#0b1220;--panel:#0f1724;--accent:#7dd3fc;--muted:#94a3b8;--danger:#ef4444;--success:#22c55e;
+    --bg:#0b1220;--panel:#0f1724;--accent:#7dd3fc;--muted:#94a3b8;--danger:#ef4444;--success:#22c55e
   }
-  html,body{
-    height:100%;
-    margin:0;
-    font-family: Inter, system-ui, Arial, sans-serif;
-    background: var(--bg);
-    color:#e6eef6;
-  }
-  #game{
-    display:grid;
-    grid-template-columns:820px 340px;
-    gap:18px;
-    padding:18px;
-    max-width:1180px;
-    margin:20px auto;
-    user-select:none;
-  }
-  canvas{
-    background:#0b1220;
-    border-radius:12px;
-    box-shadow: 0 6px 24px rgba(0,0,0,.6);
-    display:block;
-  }
-  .panel{
-    background: var(--panel);
-    padding:14px;
-    border-radius:12px;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.02);
-    display:flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  h2{
-    margin:0 0 8px 0;
-    font-size:16px;
-  }
-  .row{
-    display:flex;
-    gap:8px;
-    align-items:center;
-  }
-  button{
-    background: var(--accent);
-    border:none;
-    padding:8px 10px;
-    border-radius:8px;
-    cursor:pointer;
-    color:#000;
-    font-weight:bold;
-    user-select:none;
-  }
-  button:disabled {
-    opacity: 0.5;
-    cursor: default;
-  }
-  .muted{
-    color: var(--muted);
-    font-size: 13px;
-  }
-  #upgradeMiniPanel {
-    position: absolute;
-    background: #0f1724dd;
-    border-radius: 12px;
-    padding: 12px;
-    width: 260px;
-    box-shadow: 0 8px 16px #0a243399;
-    display: none;
-    z-index: 1000;
-    color: #e6eef6;
-    font-size: 14px;
-  }
-  .upgrade-btn {
-    background:#1e293b;
-    color:white;
-    margin:6px 0;
-    width:100%;
-    border:none;
-    border-radius:6px;
-    padding:8px;
-    cursor:pointer;
-  }
-  .upgrade-btn:disabled {
-    background: #334155;
-    cursor: not-allowed;
-  }
-  #log {
-    height: 180px;
-    overflow-y: auto;
-    background: #07131a;
-    padding: 8px;
-    border-radius: 8px;
-    font-size: 12px;
-    font-family: monospace;
-    user-select:none;
-  }
+  html,body{height:100%;margin:0;font-family:Inter,system-ui,Arial;background:var(--bg);color:#e6eef6}
+  #game{display:grid;grid-template-columns:820px 340px;gap:18px;padding:18px;max-width:1180px;margin:20px auto;user-select:none}
+  canvas{background:#0b1220;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.6);display:block}
+  .panel{background:var(--panel);padding:14px;border-radius:12px;box-shadow:inset 0 1px 0 rgba(255,255,255,.02);display:flex;flex-direction:column;gap:10px}
+  h2{margin:0 0 4px 0;font-size:16px}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  button{background:var(--accent);border:none;padding:8px 10px;border-radius:8px;cursor:pointer;color:#000;font-weight:700}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  .muted{color:var(--muted);font-size:13px}
+  .tower-btn{display:block;margin:6px 0;padding:8px;border-radius:8px;background:#0b2130;border:1px solid rgba(255,255,255,.06);text-align:left}
+  .tower-btn small{display:block;color:#9fb3c8}
+  #log{height:160px;overflow:auto;background:#07131a;padding:8px;border-radius:8px;font:12px ui-monospace,Consolas}
+  #upgradeMiniPanel{position:absolute;display:none;z-index:1000;width:280px;background:#0f1724;box-shadow:0 8px 20px rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:10px}
+  .upgrade-btn{width:100%;margin:5px 0;background:#1e293b;color:#fff;border:none;border-radius:6px;padding:8px;text-align:left}
+  .chip{display:inline-block;background:#0b2130;border:1px solid rgba(255,255,255,.08);padding:2px 6px;border-radius:999px;font-size:11px;margin-right:6px}
 </style>
 </head>
 <body>
@@ -111,35 +32,43 @@
   </div>
   <div class="panel">
     <h2>Informações</h2>
-    <div class="muted small">Wave: <span id="wave">0</span> / <span id="maxWave">60+</span></div>
-    <div class="muted small">Vida da base: <span id="lives">20</span></div>
-    <div class="muted small">Moedas: <span id="gold">100</span></div>
+    <div class="row">
+      <span class="muted">Wave: <b id="wave">0</b> / <span id="maxWave">60+</span></span>
+      <span class="muted">Base: <b id="lives">20</b></span>
+      <span class="muted">Moedas: <b id="gold">150</b></span>
+      <span class="muted">Velocidade: <b id="speedLbl">x1</b></span>
+    </div>
     <div class="row">
       <button id="start">Iniciar/Próxima Wave</button>
-      <button id="speed">x1</button>
       <button id="auto">Auto: Off</button>
+      <button id="speed">x1</button>
     </div>
-    <h2>Construir torres</h2>
+
+    <h2>Construir</h2>
     <div id="towers"></div>
+
     <h2>Torre Selecionada</h2>
-    <div id="selInfo" class="muted small">Clique no mapa para construir ou selecionar uma torre.</div>
-    <div id="upgradePanel"></div>
-    <button id="sell" class="muted small" disabled>Vender torre (50%)</button>
+    <div id="selInfo" class="muted">Clique no mapa para construir/selecionar.</div>
+    <div class="row">
+      <button id="sell" disabled>Vender (50%)</button>
+      <span id="pathRule" class="muted" title="Regra de caminhos: 1 caminho pode ir até nível 5; os outros, até nível 2.">Regra caminhos: 5-2-0</span>
+    </div>
+
     <h2>Mensagens</h2>
     <div id="log"></div>
   </div>
 </div>
+
 <div id="upgradeMiniPanel"></div>
+
 <script>
 (() => {
+  // ====== Canvas / Mapa ======
   const canvas = document.getElementById("c");
   const ctx = canvas.getContext("2d");
+  const TILE = 40, MAP_W = 20, MAP_H = 15;
 
-  const TILE_SIZE = 40;
-  const MAP_COLS = 20;
-  const MAP_ROWS = 15;
-
-  // Caminho dos inimigos (posições em grid)
+  // Caminho (grid)
   const PATH = [
     {x:0,y:7},{x:1,y:7},{x:2,y:7},{x:3,y:7},{x:4,y:7},
     {x:4,y:6},{x:4,y:5},{x:5,y:5},{x:6,y:5},{x:7,y:5},
@@ -147,546 +76,504 @@
     {x:10,y:8},{x:11,y:8},{x:12,y:8},{x:13,y:8},{x:14,y:8},
     {x:15,y:8},{x:16,y:8},{x:17,y:8},{x:18,y:8},{x:19,y:8},
   ];
+  function drawPath() {
+    // fundo
+    ctx.fillStyle = "#0b1220";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    // tiles do caminho
+    for(const p of PATH){
+      ctx.fillStyle = "#3b82f6";
+      ctx.strokeStyle = "#1e40af";
+      ctx.lineWidth = 3;
+      ctx.fillRect(p.x*TILE, p.y*TILE, TILE, TILE);
+      ctx.strokeRect(p.x*TILE, p.y*TILE, TILE, TILE);
+    }
+  }
 
-  // DOM elements
+  // ====== UI refs ======
   const waveEl = document.getElementById("wave");
   const maxWaveEl = document.getElementById("maxWave");
   const livesEl = document.getElementById("lives");
   const goldEl = document.getElementById("gold");
   const startBtn = document.getElementById("start");
-  const speedBtn = document.getElementById("speed");
   const autoBtn = document.getElementById("auto");
+  const speedBtn = document.getElementById("speed");
+  const speedLbl = document.getElementById("speedLbl");
   const towersDiv = document.getElementById("towers");
   const selInfo = document.getElementById("selInfo");
-  const upgradePanel = document.getElementById("upgradePanel");
   const sellBtn = document.getElementById("sell");
   const logDiv = document.getElementById("log");
-  const upgradeMiniPanel = document.getElementById("upgradeMiniPanel");
+  const mini = document.getElementById("upgradeMiniPanel");
 
-  // Game state
-  let wave = 0;
-  const maxWave = 60;
-  let lives = 20;
-  let gold = 100;
-  let enemies = [];
-  let bullets = [];
-  let towers = [];
-  let selectedTower = null;
-  let autoMode = false;
-  let speedMultiplier = 1;
+  // ====== Estado do jogo ======
+  let wave = 0, maxWave = 60, lives = 20, gold = 150;
+  let enemies = [], bullets = [], towers = [], particles = [];
+  let autoMode = false, speedMult = 1, frame = 0;
+  let placing = null; // {id, cost}
+  let selected = null;
+  let screenShakeT = 0;
 
-  // Sounds (simple beep placeholders)
-  const soundShoot = new Audio("https://actions.google.com/sounds/v1/impacts/wood_plank_flicks.ogg");
-  const soundEnemyDie = new Audio("https://actions.google.com/sounds/v1/cartoon/cartoon_boing.ogg");
-  const soundBuild = new Audio("https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg");
+  // Sons simples (CDN pública)
+  const sShoot = new Audio("https://actions.google.com/sounds/v1/impacts/wood_plank_flicks.ogg");
+  const sDie   = new Audio("https://actions.google.com/sounds/v1/cartoon/cartoon_boing.ogg");
+  const sBuild = new Audio("https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg");
+  sShoot.volume = 0.35; sDie.volume = 0.35; sBuild.volume = 0.35;
 
-  // Utility functions
-  function log(message) {
-    const d = new Date();
-    logDiv.innerHTML += `[${d.toLocaleTimeString()}] ${message}<br>`;
-    logDiv.scrollTop = logDiv.scrollHeight;
+  function log(msg){
+    const t = new Date().toLocaleTimeString();
+    logDiv.innerHTML += `[${t}] ${msg}<br>`; logDiv.scrollTop = logDiv.scrollHeight;
   }
-  function distance(x1,y1,x2,y2){ return Math.hypot(x2 - x1, y2 - y1); }
+  function dist(ax,ay,bx,by){ return Math.hypot(bx-ax, by-ay); }
 
-  // Classes
+  // ====== Inimigos & Resistências ======
+  // types: normal, camo (camuflado), lead (blindado), fort (fortificado), fast (veloz)
   class Enemy {
-    constructor(wave){
-      this.pathIndex = 0;
-      this.speed = 1 + wave*0.02; // aumenta com wave
-      this.maxHp = 10 + wave*5;
-      this.hp = this.maxHp;
-      this.x = PATH[0].x * TILE_SIZE + TILE_SIZE/2;
-      this.y = PATH[0].y * TILE_SIZE + TILE_SIZE/2;
+    constructor(wave, kind="normal"){
+      this.kind = kind;
+      this.hpMax = 20 + wave*6;
+      this.hp = this.hpMax;
+      this.speed = 1.0 + wave*0.02;
       this.radius = 12;
-      this.isElite = false;
-      this.color = "#f87171";
-      this.damage = 1;
+      this.pathIdx = 0;
+      this.x = PATH[0].x*TILE + TILE/2;
+      this.y = PATH[0].y*TILE + TILE/2;
       this.dmgText = null;
+
+      if(kind==="camo"){ this.color="#8b5cf6"; }
+      else if(kind==="lead"){ this.color="#9ca3af"; this.hpMax*=1.2; this.hp=this.hpMax; }
+      else if(kind==="fort"){ this.color="#ef4444"; this.hpMax*=1.6; this.hp=this.hpMax; }
+      else if(kind==="fast"){ this.color="#22c55e"; this.speed*=1.5; }
+      else { this.color="#f59e0b"; }
     }
     move(){
-      if(this.pathIndex >= PATH.length -1) return false;
-      const target = PATH[this.pathIndex+1];
-      const targetX = target.x * TILE_SIZE + TILE_SIZE/2;
-      const targetY = target.y * TILE_SIZE + TILE_SIZE/2;
-      const dx = targetX - this.x;
-      const dy = targetY - this.y;
-      const dist = Math.sqrt(dx*dx+dy*dy);
-      if(dist < this.speed){
-        this.x = targetX;
-        this.y = targetY;
-        this.pathIndex++;
-      } else {
-        this.x += dx/dist * this.speed;
-        this.y += dy/dist * this.speed;
-      }
+      if(this.pathIdx>=PATH.length-1) return false;
+      const t = PATH[this.pathIdx+1];
+      const tx = t.x*TILE + TILE/2, ty=t.y*TILE + TILE/2;
+      const dx = tx-this.x, dy = ty-this.y;
+      const d = Math.hypot(dx,dy);
+      const sp = this.speed*speedMult;
+      if(d<sp){ this.x=tx; this.y=ty; this.pathIdx++; }
+      else { this.x += dx/d*sp; this.y += dy/d*sp; }
       return true;
     }
     draw(){
       ctx.fillStyle = this.color;
-      ctx.beginPath();
-      ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2);
-      ctx.fill();
-      // HP bar
-      const barWidth = 30;
-      const barHeight = 6;
-      ctx.fillStyle = "#555";
-      ctx.fillRect(this.x - barWidth/2, this.y - this.radius - 15, barWidth, barHeight);
-      ctx.fillStyle = "#22c55e";
-      ctx.fillRect(this.x - barWidth/2, this.y - this.radius - 15, barWidth*(this.hp/this.maxHp), barHeight);
-      // dano causado (dmgText)
-      if(this.dmgText && Date.now() - this.dmgText.time < 600){
-        ctx.fillStyle = `rgba(255,0,0,${1 - (Date.now() - this.dmgText.time)/600})`;
-        ctx.font = "bold 16px Arial";
-        ctx.fillText("-" + this.dmgText.amount, this.x - 10, this.y - this.radius - 25 - ((Date.now() - this.dmgText.time)/50));
+      ctx.beginPath(); ctx.arc(this.x,this.y,this.radius,0,Math.PI*2); ctx.fill();
+      // barra de vida
+      const w=30,h=5;
+      ctx.fillStyle="#000a"; ctx.fillRect(this.x-w/2,this.y-this.radius-12,w,h);
+      ctx.fillStyle="#22c55e"; ctx.fillRect(this.x-w/2,this.y-this.radius-12,w*(this.hp/this.hpMax),h);
+      // dano flutuante
+      if(this.dmgText && Date.now()-this.dmgText.t<600){
+        const a = 1-((Date.now()-this.dmgText.t)/600);
+        ctx.fillStyle=`rgba(255,80,80,${a})`;
+        ctx.font="bold 14px Arial";
+        ctx.fillText("-"+this.dmgText.v, this.x-8, this.y-this.radius-18-(1-a)*20);
       }
     }
-    takeDamage(amount){
-      this.hp -= amount;
-      this.dmgText = {amount: amount, time: Date.now()};
-      if(this.hp <= 0){
-        return true;
-      }
+    takeDamage(val, src){
+      // Resistências
+      if(this.kind==="camo" && !src.camoDetect) return false;           // ignora dano se torre não detecta
+      if(this.kind==="lead" && !src.leadBreak)  return false;           // precisa perfurar blindado
+      // dano aplicado
+      this.hp -= val;
+      this.dmgText = {v:val, t:Date.now()};
+      // partículas
+      for(let i=0;i<6;i++){ particles.push(new Particle(this.x,this.y)); }
+      screenShakeT = 2;
+      if(this.hp<=0) return true;
       return false;
     }
   }
 
-  class Tower {
-    constructor(x,y,type){
-      this.x = x;
-      this.y = y;
-      this.type = type; // "basic", "fast", "heavy"
-      this.level = 1;
-      this.range = 100 + (type === "fast"? 20 : 0);
-      this.damage = 5 + (type === "heavy"? 10 : 0);
-      this.attackSpeed = 60; // frames between shots, default 60
-      if(type === "fast") this.attackSpeed = 25;
-      if(type === "heavy") this.attackSpeed = 90;
-      this.lastShot = 0;
-      this.critChance = 0.1;
-      this.critDamage = 1.5;
-      this.sellPrice = 50;
+  // ====== Partículas simples ======
+  class Particle{
+    constructor(x,y){
+      this.x=x; this.y=y; this.vx=(Math.random()*2-1)*2; this.vy=(Math.random()*2-1)*2;
+      this.life=20;
     }
-    canShoot(frameCount){
-      return frameCount - this.lastShot >= this.attackSpeed;
-    }
-    shoot(target, frameCount){
-      this.lastShot = frameCount;
-      let dmg = this.damage;
-      if(Math.random() < this.critChance) {
-        dmg = Math.floor(dmg * this.critDamage);
-      }
-      bullets.push(new Bullet(this.x, this.y, target, dmg));
-      soundShoot.play();
-    }
-    draw(){
-      // torre simples
-      ctx.fillStyle = this.type === "basic"? "#3b82f6" : (this.type === "fast"? "#facc15" : "#ef4444");
-      ctx.beginPath();
-      ctx.rect(this.x - TILE_SIZE/2 + 8, this.y - TILE_SIZE/2 + 8, TILE_SIZE - 16, TILE_SIZE - 16);
-      ctx.fill();
-      // desenha círculo de alcance se selecionada
-      if(selectedTower === this){
-        ctx.strokeStyle = "#7dd3fcaa";
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.range, 0, Math.PI*2);
-        ctx.stroke();
-      }
-    }
+    update(){ this.x+=this.vx; this.y+=this.vy; this.life--; }
+    draw(){ ctx.fillStyle="rgba(255,255,255,.6)"; ctx.fillRect(this.x,this.y,2,2); }
   }
 
-  class Bullet {
-    constructor(x,y,target,damage){
-      this.x = x;
-      this.y = y;
-      this.target = target;
-      this.damage = damage;
-      this.speed = 8;
-      this.radius = 4;
+  // ====== Projétil ======
+  class Bullet{
+    constructor(x,y,target,damage, src){
+      this.x=x; this.y=y; this.target=target; this.dmg=damage; this.sp=8; this.src=src;
     }
-    move(){
-      const dx = this.target.x - this.x;
-      const dy = this.target.y - this.y;
-      const dist = Math.sqrt(dx*dx + dy*dy);
-      if(dist < this.speed){
-        this.x = this.target.x;
-        this.y = this.target.y;
-        return true; // atingiu o alvo
-      }
-      this.x += dx/dist * this.speed;
-      this.y += dy/dist * this.speed;
-      return false;
+    step(){
+      if(!this.target) return true;
+      const dx=this.target.x-this.x, dy=this.target.y-this.y;
+      const d=Math.hypot(dx,dy);
+      if(d<this.sp){ this.x=this.target.x; this.y=this.target.y; return true; }
+      this.x+=dx/d*this.sp*speedMult; this.y+=dy/d*this.sp*speedMult; return false;
     }
-    draw(){
-      ctx.fillStyle = "#60a5fa";
-      ctx.beginPath();
-      ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2);
-      ctx.fill();
-    }
+    draw(){ ctx.fillStyle="#7dd3fc"; ctx.beginPath(); ctx.arc(this.x,this.y,3,0,Math.PI*2); ctx.fill(); }
   }
 
-  // Construção das torres disponíveis
-  const towerTypes = [
-    {id:"basic", name:"Básica", cost:50, description:"Torre equilibrada, dano e alcance médios."},
-    {id:"fast", name:"Rápida", cost:70, description:"Atira rápido com alcance menor."},
-    {id:"heavy", name:"Pesada", cost:100, description:"Alto dano e alcance, mas lento."}
-  ];
-
-  // Estado e funções principais
-  let frameCount = 0;
-  let waveInProgress = false;
-
-  // Iniciar painel de torres para construir
-  function initTowerButtons(){
-    towersDiv.innerHTML = "";
-    towerTypes.forEach(t => {
-      const btn = document.createElement("button");
-      btn.className = "tower-btn";
-      btn.textContent = `${t.name} - ${t.cost} moedas`;
-      btn.title = t.description;
-      btn.onclick = () => {
-        if(gold >= t.cost){
-          selectedTower = {buildingType:t.id};
-          selInfo.textContent = `Clique no mapa para construir a torre ${t.name}.`;
-          upgradePanel.innerHTML = "";
-          sellBtn.disabled = true;
-          upgradeMiniPanel.style.display = "none";
-        } else {
-          alert("Moedas insuficientes!");
+  // ====== Torres (inclui Fazenda) + Caminhos ======
+  // Caminhos: A (Dano), B (Alcance/Utilidade), C (Velocidade/Crit)
+  class Tower{
+    constructor(gridX,gridY,type){
+      this.gx=gridX; this.gy=gridY;
+      this.x=gridX*TILE+TILE/2; this.y=gridY*TILE+TILE/2;
+      this.type=type; // basic/fast/heavy/farm
+      // base stats
+      this.range= type==="heavy"? 130 : type==="fast"? 100 : 110;
+      this.damage= type==="heavy"? 12 : type==="fast"? 5 : 8;
+      this.fireCD= type==="fast"? 18 : type==="heavy"? 70 : 35; // frames
+      this.lastShot=0;
+      this.critChance=0.1; this.critMult=1.5;
+      this.camoDetect = (type==="fast");     // fast vê camo por padrão
+      this.leadBreak  = (type==="heavy");    // heavy quebra lead
+      this.sellValue= Math.floor(getTowerData(type).cost*0.5);
+      // caminhos
+      this.path = {A:0,B:0,C:0}; // A/B/C níveis
+      this.pathLocked = null;    // se algum caminho atingir 3+, outros travam em 2
+      // Fazenda
+      this.isFarm = (type==="farm");
+      this.incomeTimer = 0; // frames
+      this.incomeEvery = 300; // ~5s a 60fps
+      this.income = 25; // moedas por tick
+    }
+    canShoot(){ return frame - this.lastShot >= this.fireCD; }
+    tryShoot(){
+      if(this.isFarm) return;
+      const t = findTarget(this);
+      if(t){
+        this.lastShot=frame;
+        let dmg = this.damage;
+        if(Math.random()<this.critChance) dmg = Math.round(dmg*this.critMult);
+        bullets.push(new Bullet(this.x,this.y,t,dmg,this));
+        sShoot.currentTime=0; sShoot.play();
+      }
+    }
+    tickEconomy(){
+      if(!this.isFarm) return;
+      this.incomeTimer += speedMult;
+      if(this.incomeTimer >= this.incomeEvery){
+        this.incomeTimer = 0;
+        gold += this.income;
+        updateUI();
+        log(`Fazenda gerou +${this.income} moedas.`);
+      }
+    }
+    draw(){
+      if(this.isFarm){
+        // desenho fazenda
+        ctx.fillStyle="#84cc16";
+        ctx.fillRect(this.x-TILE/2+6, this.y-TILE/2+10, TILE-12, TILE-12);
+        ctx.fillStyle="#a3e635"; ctx.fillRect(this.x-10, this.y-18, 20, 10);
+      } else {
+        ctx.fillStyle = (this.type==="basic")?"#3b82f6":(this.type==="fast")?"#facc15":"#ef4444";
+        ctx.fillRect(this.x-TILE/2+8, this.y-TILE/2+8, TILE-16, TILE-16);
+        if(selected===this){
+          ctx.strokeStyle="#7dd3fcaa"; ctx.lineWidth=2;
+          ctx.beginPath(); ctx.arc(this.x,this.y,this.range,0,Math.PI*2); ctx.stroke();
         }
+      }
+    }
+  }
+
+  // Dados de construção
+  function getTowerData(id){
+    const map = {
+      basic:{name:"Básica",cost:60,desc:"Equilíbrio entre dano e alcance."},
+      fast :{name:"Rápida",cost:85,desc:"Alta cadência; detecta camuflado."},
+      heavy:{name:"Pesada",cost:120,desc:"Alto dano; quebra blindado."},
+      farm :{name:"Fazenda",cost:200,desc:"Gera moedas periodicamente."}
+    }; return map[id];
+  }
+
+  // Lista de botões de construção
+  function initBuildButtons(){
+    const ids=["basic","fast","heavy","farm"];
+    towersDiv.innerHTML="";
+    ids.forEach(id=>{
+      const d = getTowerData(id);
+      const b = document.createElement("button");
+      b.className="tower-btn";
+      b.innerHTML = `<b>${d.name}</b> — ${d.cost} moedas<small>${d.desc}</small>`;
+      b.onclick = ()=>{
+        if(gold<d.cost){ alert("Moedas insuficientes."); return; }
+        placing = {id,cost:d.cost};
+        selInfo.textContent = `Clique no mapa (fora do caminho) para construir ${d.name}.`;
       };
-      towersDiv.appendChild(btn);
+      towersDiv.appendChild(b);
     });
   }
-  initTowerButtons();
 
-  // Desenha o mapa e caminho
-  function drawPath() {
-    ctx.fillStyle = "#0b1220"; // fundo
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    for(let i=0; i<PATH.length; i++){
-      const p = PATH[i];
-      ctx.fillStyle = "#3b82f6"; // azul caminho
-      ctx.strokeStyle = "#1e40af";
-      ctx.lineWidth = 3;
-      ctx.fillRect(p.x * TILE_SIZE, p.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-      ctx.strokeRect(p.x * TILE_SIZE, p.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+  // ====== Seleção / Construção ======
+  canvas.addEventListener("click", (e)=>{
+    const r = canvas.getBoundingClientRect();
+    const x = e.clientX - r.left, y = e.clientY - r.top;
+    const gx = Math.floor(x/TILE), gy = Math.floor(y/TILE);
+
+    // construir?
+    if(placing){
+      // bloquear caminho
+      if(PATH.some(p=>p.x===gx && p.y===gy)){ alert("Não pode construir no caminho!"); return; }
+      // bloquear ocupação
+      if(towers.some(t=>t.gx===gx && t.gy===gy)){ alert("Já existe torre aqui."); return; }
+      gold -= placing.cost;
+      const t = new Tower(gx,gy,placing.id);
+      towers.push(t);
+      selected = t;
+      sBuild.currentTime=0; sBuild.play();
+      placing=null; updateUI(); openMini(t);
+      log(`Construída: ${getTowerData(t.type).name}.`);
+      return;
     }
+
+    // selecionar torre
+    selected = towers.find(t=> Math.abs(t.x-x)<TILE/2 && Math.abs(t.y-y)<TILE/2) || null;
+    if(selected){ openMini(selected); sellBtn.disabled=false; }
+    else { mini.style.display="none"; sellBtn.disabled=true; }
+  });
+
+  // ====== Upgrades de Caminho (A/B/C) ======
+  // Regra: se algum caminho chegar a nível 3+, os outros só podem ir até 2 (estilo 5-2-0).
+  function canUpgradePath(tower, pathKey){
+    const lv = tower.path[pathKey];
+    if(lv>=5) return false;
+    const others = Object.keys(tower.path).filter(k=>k!==pathKey);
+    const hasMajor = Object.values(tower.path).some(v=>v>=3);
+    if(hasMajor && others.some(k=>k!==pathKey && tower.path[pathKey]<3 && tower.path[k]>=2 && lv>=2)){
+      // já existe major em outro caminho; este não pode passar de 2
+      return false;
+    }
+    // se este já é major (>=3), os outros não podem passar de 2 (checaremos ao clicar nos outros)
+    return true;
+  }
+  function pathCost(base, lvl){ return Math.floor(base * Math.pow(1.35, lvl)); }
+
+  function openMini(t){
+    // posicionar painel próximo da torre
+    mini.style.left = (t.x + 24) + "px";
+    mini.style.top  = (t.y - 90) + "px";
+    mini.style.display="block";
+
+    // textos de caminhos
+    const A = t.path.A, B=t.path.B, C=t.path.C;
+    const aCost = pathCost(40, A), bCost = pathCost(35, B), cCost = pathCost(45, C);
+
+    const camo = t.camoDetect ? `<span class="chip">Camo ✔</span>` : `<span class="chip">Camo ✖</span>`;
+    const lead = t.leadBreak  ? `<span class="chip">Lead ✔</span>` : `<span class="chip">Lead ✖</span>`;
+
+    mini.innerHTML = `
+      <div><b>Torre ${getTowerData(t.type).name}</b> — Nível Total: ${A+B+C}</div>
+      <div class="muted">Caminhos: A=${A} · B=${B} · C=${C}</div>
+      <div>${camo} ${lead} <span class="chip">Alcance ${t.range|0}</span> <span class="chip">Dano ${t.damage}</span></div>
+      ${t.isFarm? `<div class="muted">Renda: ${t.income} / ~5s</div>` : ""}
+      <button id="uA" class="upgrade-btn">Caminho A (Dano) — +3 dano / +5% crit — <b>${aCost}</b></button>
+      <button id="uB" class="upgrade-btn">Caminho B (Alcance/Util) — +10 alcance / utilidade — <b>${bCost}</b></button>
+      <button id="uC" class="upgrade-btn">Caminho C (Velocidade) — -10% recarga — <b>${cCost}</b></button>
+    `;
+
+    const uA = document.getElementById("uA");
+    const uB = document.getElementById("uB");
+    const uC = document.getElementById("uC");
+
+    uA.onclick = ()=> tryUpgradePath(t,"A",aCost, ()=>{
+      if(t.isFarm){ t.income += 8; } else { t.damage += 3; t.critChance=Math.min(0.6, t.critChance+0.05); }
+    });
+
+    uB.onclick = ()=> tryUpgradePath(t,"B",bCost, ()=>{
+      if(t.isFarm){ t.incomeEvery = Math.max(150, Math.round(t.incomeEvery*0.9)); }
+      else { t.range += 10; if(t.path.B===2) t.camoDetect=true; if(t.path.B===3) t.leadBreak=true; }
+    });
+
+    uC.onclick = ()=> tryUpgradePath(t,"C",cCost, ()=>{
+      if(t.isFarm){ /* nada aqui; renda já melhorada nos outros */ }
+      else { t.fireCD = Math.max(6, Math.round(t.fireCD*0.9)); t.critMult = Math.min(3.0, t.critMult+0.1); }
+    });
+
+    // bloquear botões se violarem regra
+    if(!canUpgradePath(t,"A")) uA.disabled=true;
+    if(!canUpgradePath(t,"B")) uB.disabled=true;
+    if(!canUpgradePath(t,"C")) uC.disabled=true;
   }
 
-  // Procurar inimigo no alcance da torre
-  function getEnemyInRange(tower){
+  function tryUpgradePath(t, key, cost, apply){
+    if(gold < cost){ alert("Moedas insuficientes."); return; }
+    // regra de caminhos
+    if(!canUpgradePath(t, key)){ alert("Limite de caminhos atingido (5-2-0)."); return; }
+    t.path[key] += 1;
+    // trava outros em 2 quando algum chega a 3
+    if(t.path[key]===3) t.pathLocked = key;
+    gold -= cost; apply(); updateUI(); openMini(t);
+    log(`Upgrade aplicado: Caminho ${key} → nível ${t.path[key]}.`);
+  }
+
+  // Vender torre
+  sellBtn.onclick = ()=>{
+    if(!selected) return;
+    const val = selected.sellValue + (selected.path.A+selected.path.B+selected.path.C)*15;
+    gold += val;
+    towers = towers.filter(tt=>tt!==selected);
+    log(`Torre vendida por +${val} moedas.`);
+    selected=null; mini.style.display="none"; sellBtn.disabled=true; updateUI();
+  };
+
+  // ====== Lógica de combate ======
+  function findTarget(t){
+    // simples: primeiro inimigo no alcance
     for(const e of enemies){
-      const dist = distance(tower.x, tower.y, e.x, e.y);
-      if(dist <= tower.range && e.hp > 0){
+      if(e.hp>0 && dist(t.x,t.y,e.x,e.y) <= t.range){
+        // camo/lead filtrados em takeDamage; disparamos mesmo assim
         return e;
       }
     }
     return null;
   }
 
-  // Criar inimigos da wave
-  function spawnWave(waveNumber){
-    let count = 5 + waveNumber * 2;
+  // ====== Waves com variedades & elites/boss ======
+  let spawning = false;
+  function spawnWave(n){
+    spawning = true;
+    const total = 6 + n*2;
     let spawned = 0;
-    const spawnInterval = 800 / speedMultiplier;
-    const spawnTimer = setInterval(() => {
-      if(spawned >= count){
-        clearInterval(spawnTimer);
-        waveInProgress = true;
-        return;
+
+    const spawnOne = ()=>{
+      if(spawned>=total){ spawning=false; return; }
+      // decide tipo
+      let kind="normal";
+      const r=Math.random();
+      if(n>=5 && r<0.15) kind="camo";
+      else if(n>=7 && r<0.15) kind="lead";
+      else if(n>=10 && r<0.12) kind="fort";
+      else if(r<0.12) kind="fast";
+
+      // elites a cada 10 waves
+      if(n%10===0 && (spawned%8===0)){
+        kind="fort";
       }
-      const enemy = new Enemy(waveNumber);
-      enemies.push(enemy);
-      spawned++;
-    }, spawnInterval);
-  }
-
-  // Atualiza status na interface
-  function updateUI(){
-    waveEl.textContent = wave;
-    livesEl.textContent = lives;
-    goldEl.textContent = gold;
-  }
-
-  // Seleciona torre ou construção
-  function selectTowerAt(x,y){
-    selectedTower = null;
-    for(const t of towers){
-      if(Math.abs(t.x - x) < TILE_SIZE/2 && Math.abs(t.y - y) < TILE_SIZE/2){
-        selectedTower = t;
-        break;
+      // boss final
+      if(n===maxWave && spawned===0){
+        kind="fort";
       }
-    }
-    if(selectedTower){
-      showUpgradePanel(selectedTower);
-      selInfo.textContent = `Torre selecionada (${selectedTower.type}, nível ${selectedTower.level})`;
-      sellBtn.disabled = false;
-    } else if(selectedTower && selectedTower.buildingType) {
-      selInfo.textContent = `Clique para construir a torre ${selectedTower.buildingType}`;
-    } else {
-      selInfo.textContent = "Clique no mapa para construir ou selecionar uma torre.";
-      upgradePanel.innerHTML = "";
-      sellBtn.disabled = true;
-      upgradeMiniPanel.style.display = "none";
-    }
+
+      const e = new Enemy(n, kind);
+      if(n===maxWave){ e.hp*=5; e.hpMax=e.hp; e.speed*=0.9; e.radius=16; } // boss
+      enemies.push(e); spawned++;
+      setTimeout(spawnOne, Math.max(120, 500 - n*6)/speedMult);
+    };
+    spawnOne();
   }
 
-  // Construir torre na posição clicada
-  function buildTowerAt(x,y){
-    if(!selectedTower || !selectedTower.buildingType) return false;
-    // Checar se já existe torre nessa posição
-    for(const t of towers){
-      if(Math.abs(t.x - x) < TILE_SIZE/2 && Math.abs(t.y - y) < TILE_SIZE/2) {
-        alert("Já existe torre nessa posição!");
-        return false;
-      }
-    }
-    // Checar se posição não está no caminho
-    const gridX = Math.floor(x / TILE_SIZE);
-    const gridY = Math.floor(y / TILE_SIZE);
-    if(PATH.some(p => p.x === gridX && p.y === gridY)){
-      alert("Não pode construir no caminho!");
-      return false;
-    }
-    // Construir torre
-    const tdata = towerTypes.find(t=>t.id === selectedTower.buildingType);
-    if(gold < tdata.cost){
-      alert("Moedas insuficientes!");
-      return false;
-    }
-    gold -= tdata.cost;
-    const newTower = new Tower(gridX * TILE_SIZE + TILE_SIZE/2, gridY * TILE_SIZE + TILE_SIZE/2, tdata.id);
-    towers.push(newTower);
-    selectedTower = newTower;
-    updateUI();
-    showUpgradePanel(newTower);
-    log(`Torre ${tdata.name} construída.`);
-    soundBuild.play();
-    return true;
-  }
-
-  // Mostrar painel de upgrades para a torre
-  function showUpgradePanel(tower){
-    upgradeMiniPanel.style.display = "block";
-    upgradeMiniPanel.style.left = (tower.x + 30) + "px";
-    upgradeMiniPanel.style.top = (tower.y - 80) + "px";
-    upgradeMiniPanel.innerHTML = `
-      <strong>Upgrades Torre (${tower.type.toUpperCase()})</strong><br>
-      Nível: ${tower.level}<br>
-      Alcance: ${tower.range.toFixed(0)}<br>
-      Dano: ${tower.damage}<br>
-      Velocidade de Ataque: ${(60/tower.attackSpeed).toFixed(2)} tiros/s<br>
-      Chance Crítica: ${(tower.critChance*100).toFixed(0)}%<br>
-      Dano Crítico: x${tower.critDamage.toFixed(2)}<br>
-      <button id="upgradeRange" class="upgrade-btn">Melhorar Alcance (30 moedas)</button>
-      <button id="upgradeDamage" class="upgrade-btn">Melhorar Dano (40 moedas)</button>
-      <button id="upgradeAttackSpeed" class="upgrade-btn">Melhorar Velocidade (50 moedas)</button>
-      <button id="upgradeCritChance" class="upgrade-btn">Melhorar Crit Chance (25 moedas)</button>
-      <button id="upgradeCritDamage" class="upgrade-btn">Melhorar Crit Dano (35 moedas)</button>
-    `;
-
-    // Definir funções dos botões
-    document.getElementById("upgradeRange").onclick = () => upgradeTower(tower, "range", 30, 10);
-    document.getElementById("upgradeDamage").onclick = () => upgradeTower(tower, "damage", 40, 5);
-    document.getElementById("upgradeAttackSpeed").onclick = () => upgradeTower(tower, "attackSpeed", 50, -5);
-    document.getElementById("upgradeCritChance").onclick = () => upgradeTower(tower, "critChance", 25, 0.05);
-    document.getElementById("upgradeCritDamage").onclick = () => upgradeTower(tower, "critDamage", 35, 0.25);
-  }
-
-  // Função para upgrade de torre
-  function upgradeTower(tower, stat, cost, increment){
-    if(gold < cost){
-      alert("Moedas insuficientes!");
-      return;
-    }
-    gold -= cost;
-    switch(stat){
-      case "range":
-        tower.range += increment;
-        break;
-      case "damage":
-        tower.damage += increment;
-        break;
-      case "attackSpeed":
-        tower.attackSpeed = Math.max(5, tower.attackSpeed + increment); // increment negativo = melhora (menos frames)
-        break;
-      case "critChance":
-        tower.critChance = Math.min(1, tower.critChance + increment);
-        break;
-      case "critDamage":
-        tower.critDamage += increment;
-        break;
-    }
-    tower.level++;
-    updateUI();
-    showUpgradePanel(tower);
-    log(`Torre ${stat} melhorada.`);
-  }
-
-  // Vender torre
-  sellBtn.onclick = () => {
-    if(!selectedTower) return;
-    gold += Math.floor(selectedTower.sellPrice * 0.5);
-    towers = towers.filter(t=>t !== selectedTower);
-    log("Torre vendida por " + Math.floor(selectedTower.sellPrice * 0.5) + " moedas.");
-    selectedTower = null;
-    upgradeMiniPanel.style.display = "none";
-    sellBtn.disabled = true;
-    updateUI();
-    selInfo.textContent = "Clique no mapa para construir ou selecionar uma torre.";
-    upgradePanel.innerHTML = "";
-  };
-
-  // Eventos clique no canvas
-  canvas.addEventListener("click", e => {
-    const rect = canvas.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const clickY = e.clientY - rect.top;
-
-    if(selectedTower && selectedTower.buildingType){
-      // Construir torre
-      if(buildTowerAt(clickX, clickY)){
-        selectedTower = null;
-        selInfo.textContent = "Torre construída!";
-      }
-    } else {
-      // Selecionar torre existente
-      selectTowerAt(clickX, clickY);
-    }
-  });
-
-  // Controle wave
-  startBtn.onclick = () => {
-    if(waveInProgress) return;
+  // ====== Controles topo ======
+  startBtn.onclick = ()=>{
+    if(spawning) return;
     wave++;
-    if(wave > maxWave){
-      alert("Parabéns! Você venceu todas as waves!");
-      wave = maxWave;
-      return;
-    }
-    spawnWave(wave);
-    updateUI();
+    if(wave>maxWave){ log("Você já venceu todas as waves!"); wave=maxWave; return; }
+    log(`Iniciando Wave ${wave}...`);
+    spawnWave(wave); updateUI();
+  };
+  autoBtn.onclick = ()=>{
+    autoMode = !autoMode; autoBtn.textContent = "Auto: " + (autoMode?"On":"Off");
+  };
+  speedBtn.onclick = ()=>{
+    speedMult = (speedMult===1?3: (speedMult===3?5:1));
+    speedBtn.textContent = "x"+speedMult; speedLbl.textContent="x"+speedMult;
   };
 
-  // Controle speed
-  speedBtn.onclick = () => {
-    if(speedMultiplier === 1){
-      speedMultiplier = 3;
-      speedBtn.textContent = "x3";
-    } else {
-      speedMultiplier = 1;
-      speedBtn.textContent = "x1";
-    }
-  };
+  // ====== Atualização UI ======
+  function updateUI(){
+    waveEl.textContent=wave; livesEl.textContent=lives; goldEl.textContent=gold;
+  }
 
-  // Controle auto wave
-  autoBtn.onclick = () => {
-    autoMode = !autoMode;
-    autoBtn.textContent = "Auto: " + (autoMode ? "On" : "Off");
-  };
-
-  // Função principal de update e desenho
+  // ====== Loop ======
   function gameLoop(){
-    frameCount++;
+    frame++;
+
+    // screen shake leve
+    let ox=0, oy=0;
+    if(screenShakeT>0){ ox = (Math.random()*2-1)*2; oy=(Math.random()*2-1)*2; screenShakeT--; }
+    ctx.save(); ctx.translate(ox,oy);
 
     drawPath();
 
-    // Atualiza inimigos
-    for(let i = enemies.length-1; i>=0; i--){
-      let e = enemies[i];
-      let alive = e.move();
-      e.draw();
+    // torres
+    for(const t of towers){ t.draw(); }
 
-      if(!alive){ // inimigo chegou no fim
+    // inimigos
+    for(let i=enemies.length-1;i>=0;i--){
+      const e = enemies[i];
+      const alive = e.move();
+      e.draw();
+      if(!alive){ // chegou ao fim
         enemies.splice(i,1);
-        lives--;
-        updateUI();
-        log("Um inimigo passou! Vida da base: "+lives);
-        if(lives <= 0){
-          alert("Você perdeu! Game Over.");
-          resetGame();
-          return;
+        lives--; updateUI();
+        log("Um inimigo passou! -1 vida.");
+        if(lives<=0){
+          alert("Game Over!");
+          resetGame(); ctx.restore(); requestAnimationFrame(gameLoop); return;
         }
       }
     }
 
-    // Atualiza balas
-    for(let i = bullets.length-1; i>=0; i--){
-      let b = bullets[i];
-      let hit = b.move();
+    // balas
+    for(let i=bullets.length-1;i>=0;i--){
+      const b = bullets[i];
+      const hit = b.step();
       b.draw();
       if(hit){
-        if(b.target.takeDamage(b.damage)){
-          // inimigo morreu
-          soundEnemyDie.play();
-          gold += 10;
-          updateUI();
+        if(b.target && b.target.takeDamage(b.dmg, b.src)){
+          // morreu
+          sDie.currentTime=0; sDie.play();
+          gold += 10; updateUI();
+          enemies = enemies.filter(e=>e!==b.target);
           log("Inimigo derrotado! +10 moedas.");
-          enemies = enemies.filter(en => en !== b.target);
         }
         bullets.splice(i,1);
       }
     }
 
-    // Torres atiram se possível
+    // partículas
+    for(let i=particles.length-1;i>=0;i--){
+      particles[i].update(); particles[i].draw();
+      if(particles[i].life<=0) particles.splice(i,1);
+    }
+
+    // disparo torres + economia
     for(const t of towers){
-      if(enemies.length === 0) continue;
-      if(t.canShoot(frameCount)){
-        const target = getEnemyInRange(t);
-        if(target){
-          t.shoot(target, frameCount);
-        }
-      }
-      t.draw();
+      if(!t.isFarm && t.canShoot()) t.tryShoot();
+      if(t.isFarm) t.tickEconomy();
     }
 
-    // Verifica se wave terminou
-    if(waveInProgress && enemies.length === 0){
-      waveInProgress = false;
-      log(`Wave ${wave} finalizada!`);
-      if(autoMode){
-        startBtn.click();
+    // fim da wave
+    if(!spawning && enemies.length===0){
+      if(wave>0) log(`Wave ${wave} finalizada!`);
+      if(autoMode && wave<maxWave) startBtn.click();
+      if(wave===maxWave && enemies.length===0 && !spawning){
+        log("🏆 Você venceu! Boss derrotado.");
       }
     }
 
+    ctx.restore();
     requestAnimationFrame(gameLoop);
   }
 
-  // Reset game
+  // ====== Reset ======
   function resetGame(){
-    wave = 0;
-    lives = 20;
-    gold = 100;
-    enemies = [];
-    bullets = [];
-    towers = [];
-    selectedTower = null;
-    waveInProgress = false;
-    updateUI();
-    selInfo.textContent = "Clique no mapa para construir ou selecionar uma torre.";
-    upgradePanel.innerHTML = "";
-    upgradeMiniPanel.style.display = "none";
-    sellBtn.disabled = true;
-    log("Jogo reiniciado.");
+    wave=0; lives=20; gold=150;
+    enemies=[]; bullets=[]; towers=[]; particles=[];
+    placing=null; selected=null; spawning=false; autoMode=false; speedMult=1;
+    updateUI(); mini.style.display="none"; sellBtn.disabled=true;
   }
 
-  // Inicializa UI e game
+  // ====== Start ======
+  initBuildButtons();
   updateUI();
-  resetGame();
+  log("Dica: Construa uma Fazenda cedo para acelerar sua economia!");
+  requestAnimationFrame(gameLoop);
 
-  // Exibe upgrade mini painel no mouseover da torre selecionada
-  // Já mostrado no clique de torre pelo upgradeMiniPanel.style.left/top
-
-  // Escuta para esconder o painel se clicar fora
-  window.addEventListener("click", (e) => {
-    if(!upgradeMiniPanel.contains(e.target) && e.target !== canvas && !e.target.classList.contains("upgrade-btn")){
-      upgradeMiniPanel.style.display = "none";
-    }
+  // fecha mini se clicar fora
+  window.addEventListener("mousedown",(e)=>{
+    if(e.target.closest("#upgradeMiniPanel")) return;
+    if(e.target===canvas) return;
+    mini.style.display="none";
   });
-
-  // Inicia loop principal
-  gameLoop();
 
 })();
 </script>
