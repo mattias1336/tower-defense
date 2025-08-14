@@ -3,11 +3,9 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Tower Defense — Upgrades de Caminho + Resistências + Fazenda</title>
+<title>Tower Defense — Balanceado</title>
 <style>
-  :root{
-    --bg:#0b1220;--panel:#0f1724;--accent:#7dd3fc;--muted:#94a3b8;--danger:#ef4444;--success:#22c55e
-  }
+  :root{--bg:#0b1220;--panel:#0f1724;--accent:#7dd3fc;--muted:#94a3b8;--danger:#ef4444;--success:#22c55e}
   html,body{height:100%;margin:0;font-family:Inter,system-ui,Arial;background:var(--bg);color:#e6eef6}
   #game{display:grid;grid-template-columns:820px 340px;gap:18px;padding:18px;max-width:1180px;margin:20px auto;user-select:none}
   canvas{background:#0b1220;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.6);display:block}
@@ -27,9 +25,7 @@
 </head>
 <body>
 <div id="game">
-  <div>
-    <canvas id="c" width="820" height="600"></canvas>
-  </div>
+  <div><canvas id="c" width="820" height="600"></canvas></div>
   <div class="panel">
     <h2>Informações</h2>
     <div class="row">
@@ -63,7 +59,6 @@
 
 <script>
 (() => {
-  // ====== Canvas / Mapa ======
   const canvas = document.getElementById("c");
   const ctx = canvas.getContext("2d");
   const TILE = 40, MAP_W = 20, MAP_H = 15;
@@ -76,208 +71,144 @@
     {x:10,y:8},{x:11,y:8},{x:12,y:8},{x:13,y:8},{x:14,y:8},
     {x:15,y:8},{x:16,y:8},{x:17,y:8},{x:18,y:8},{x:19,y:8},
   ];
-  function drawPath() {
-    // fundo
-    ctx.fillStyle = "#0b1220";
-    ctx.fillRect(0,0,canvas.width,canvas.height);
-    // tiles do caminho
+  function drawPath(){
+    ctx.fillStyle = "#0b1220"; ctx.fillRect(0,0,canvas.width,canvas.height);
     for(const p of PATH){
-      ctx.fillStyle = "#3b82f6";
-      ctx.strokeStyle = "#1e40af";
-      ctx.lineWidth = 3;
+      ctx.fillStyle = "#3b82f6"; ctx.strokeStyle = "#1e40af"; ctx.lineWidth = 3;
       ctx.fillRect(p.x*TILE, p.y*TILE, TILE, TILE);
       ctx.strokeRect(p.x*TILE, p.y*TILE, TILE, TILE);
     }
   }
 
-  // ====== UI refs ======
-  const waveEl = document.getElementById("wave");
-  const maxWaveEl = document.getElementById("maxWave");
-  const livesEl = document.getElementById("lives");
-  const goldEl = document.getElementById("gold");
-  const startBtn = document.getElementById("start");
-  const autoBtn = document.getElementById("auto");
-  const speedBtn = document.getElementById("speed");
-  const speedLbl = document.getElementById("speedLbl");
-  const towersDiv = document.getElementById("towers");
-  const selInfo = document.getElementById("selInfo");
-  const sellBtn = document.getElementById("sell");
-  const logDiv = document.getElementById("log");
-  const mini = document.getElementById("upgradeMiniPanel");
+  // UI refs
+  const waveEl=document.getElementById("wave"), maxWaveEl=document.getElementById("maxWave");
+  const livesEl=document.getElementById("lives"), goldEl=document.getElementById("gold");
+  const startBtn=document.getElementById("start"), autoBtn=document.getElementById("auto");
+  const speedBtn=document.getElementById("speed"), speedLbl=document.getElementById("speedLbl");
+  const towersDiv=document.getElementById("towers"), selInfo=document.getElementById("selInfo");
+  const sellBtn=document.getElementById("sell"), logDiv=document.getElementById("log");
+  const mini=document.getElementById("upgradeMiniPanel");
 
-  // ====== Estado do jogo ======
-  let wave = 0, maxWave = 60, lives = 20, gold = 150;
-  let enemies = [], bullets = [], towers = [], particles = [];
-  let autoMode = false, speedMult = 1, frame = 0;
-  let placing = null; // {id, cost}
-  let selected = null;
-  let screenShakeT = 0;
+  // Estado
+  let wave=0, maxWave=60, lives=20, gold=150;
+  let enemies=[], bullets=[], towers=[], particles=[];
+  let autoMode=false, speedMult=1, frame=0;
+  let placing=null, selected=null, spawning=false;
+  let screenShakeT=0;
 
-  // Sons simples (CDN pública)
-  const sShoot = new Audio("https://actions.google.com/sounds/v1/impacts/wood_plank_flicks.ogg");
-  const sDie   = new Audio("https://actions.google.com/sounds/v1/cartoon/cartoon_boing.ogg");
-  const sBuild = new Audio("https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg");
-  sShoot.volume = 0.35; sDie.volume = 0.35; sBuild.volume = 0.35;
+  // Sons
+  const sShoot=new Audio("https://actions.google.com/sounds/v1/impacts/wood_plank_flicks.ogg");
+  const sDie=new Audio("https://actions.google.com/sounds/v1/cartoon/cartoon_boing.ogg");
+  const sBuild=new Audio("https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg");
+  sShoot.volume=0.35; sDie.volume=0.35; sBuild.volume=0.35;
 
-  function log(msg){
-    const t = new Date().toLocaleTimeString();
-    logDiv.innerHTML += `[${t}] ${msg}<br>`; logDiv.scrollTop = logDiv.scrollHeight;
-  }
-  function dist(ax,ay,bx,by){ return Math.hypot(bx-ax, by-ay); }
+  function log(m){ const t=new Date().toLocaleTimeString(); logDiv.innerHTML+=`[${t}] ${m}<br>`; logDiv.scrollTop=logDiv.scrollHeight; }
+  function dist(ax,ay,bx,by){ return Math.hypot(bx-ax,by-ay); }
 
-  // ====== Inimigos & Resistências ======
-  // types: normal, camo (camuflado), lead (blindado), fort (fortificado), fast (veloz)
-  class Enemy {
+  // ================= Inimigos (balanceados) =================
+  class Enemy{
     constructor(wave, kind="normal"){
-      this.kind = kind;
-      this.hpMax = 20 + wave*6;
+      this.kind=kind;
+      // Crescimento de HP mais suave + reforço pós-wave 15
+      this.hpMax = Math.round(30 + wave*6 + Math.max(0, wave-15)*4); // <= PRINCIPAL
       this.hp = this.hpMax;
-      this.speed = 1.0 + wave*0.02;
-      this.radius = 12;
-      this.pathIdx = 0;
-      this.x = PATH[0].x*TILE + TILE/2;
-      this.y = PATH[0].y*TILE + TILE/2;
-      this.dmgText = null;
-
+      // Velocidade levemente menor
+      this.speed = 0.9 + wave*0.015; // <= PRINCIPAL
+      this.radius=12;
+      this.pathIdx=0;
+      this.x=PATH[0].x*TILE+TILE/2; this.y=PATH[0].y*TILE+TILE/2;
+      this.dmgText=null;
+      // Variações
       if(kind==="camo"){ this.color="#8b5cf6"; }
-      else if(kind==="lead"){ this.color="#9ca3af"; this.hpMax*=1.2; this.hp=this.hpMax; }
-      else if(kind==="fort"){ this.color="#ef4444"; this.hpMax*=1.6; this.hp=this.hpMax; }
-      else if(kind==="fast"){ this.color="#22c55e"; this.speed*=1.5; }
+      else if(kind==="lead"){ this.color="#9ca3af"; this.hpMax=Math.round(this.hpMax*1.25); this.hp=this.hpMax; }
+      else if(kind==="fort"){ this.color="#ef4444"; this.hpMax=Math.round(this.hpMax*1.75); this.hp=this.hpMax; }
+      else if(kind==="fast"){ this.color="#22c55e"; this.speed*=1.45; }
       else { this.color="#f59e0b"; }
     }
     move(){
       if(this.pathIdx>=PATH.length-1) return false;
-      const t = PATH[this.pathIdx+1];
-      const tx = t.x*TILE + TILE/2, ty=t.y*TILE + TILE/2;
-      const dx = tx-this.x, dy = ty-this.y;
-      const d = Math.hypot(dx,dy);
-      const sp = this.speed*speedMult;
-      if(d<sp){ this.x=tx; this.y=ty; this.pathIdx++; }
-      else { this.x += dx/d*sp; this.y += dy/d*sp; }
+      const t=PATH[this.pathIdx+1], tx=t.x*TILE+TILE/2, ty=t.y*TILE+TILE/2;
+      const dx=tx-this.x, dy=ty-this.y, d=Math.hypot(dx,dy), sp=this.speed*speedMult;
+      if(d<sp){ this.x=tx; this.y=ty; this.pathIdx++; } else { this.x+=dx/d*sp; this.y+=dy/d*sp; }
       return true;
     }
     draw(){
-      ctx.fillStyle = this.color;
-      ctx.beginPath(); ctx.arc(this.x,this.y,this.radius,0,Math.PI*2); ctx.fill();
-      // barra de vida
-      const w=30,h=5;
-      ctx.fillStyle="#000a"; ctx.fillRect(this.x-w/2,this.y-this.radius-12,w,h);
+      ctx.fillStyle=this.color; ctx.beginPath(); ctx.arc(this.x,this.y,this.radius,0,Math.PI*2); ctx.fill();
+      const w=30,h=5; ctx.fillStyle="#000a"; ctx.fillRect(this.x-w/2,this.y-this.radius-12,w,h);
       ctx.fillStyle="#22c55e"; ctx.fillRect(this.x-w/2,this.y-this.radius-12,w*(this.hp/this.hpMax),h);
-      // dano flutuante
       if(this.dmgText && Date.now()-this.dmgText.t<600){
-        const a = 1-((Date.now()-this.dmgText.t)/600);
-        ctx.fillStyle=`rgba(255,80,80,${a})`;
-        ctx.font="bold 14px Arial";
+        const a=1-((Date.now()-this.dmgText.t)/600);
+        ctx.fillStyle=`rgba(255,80,80,${a})`; ctx.font="bold 14px Arial";
         ctx.fillText("-"+this.dmgText.v, this.x-8, this.y-this.radius-18-(1-a)*20);
       }
     }
     takeDamage(val, src){
-      // Resistências
-      if(this.kind==="camo" && !src.camoDetect) return false;           // ignora dano se torre não detecta
-      if(this.kind==="lead" && !src.leadBreak)  return false;           // precisa perfurar blindado
-      // dano aplicado
-      this.hp -= val;
-      this.dmgText = {v:val, t:Date.now()};
-      // partículas
+      if(this.kind==="camo" && !src.camoDetect) return false;
+      if(this.kind==="lead" && !src.leadBreak)  return false;
+      this.hp-=val; this.dmgText={v:val,t:Date.now()};
       for(let i=0;i<6;i++){ particles.push(new Particle(this.x,this.y)); }
-      screenShakeT = 2;
-      if(this.hp<=0) return true;
-      return false;
+      screenShakeT=2;
+      return this.hp<=0;
     }
   }
 
-  // ====== Partículas simples ======
+  // Partículas
   class Particle{
-    constructor(x,y){
-      this.x=x; this.y=y; this.vx=(Math.random()*2-1)*2; this.vy=(Math.random()*2-1)*2;
-      this.life=20;
-    }
+    constructor(x,y){ this.x=x; this.y=y; this.vx=(Math.random()*2-1)*2; this.vy=(Math.random()*2-1)*2; this.life=20; }
     update(){ this.x+=this.vx; this.y+=this.vy; this.life--; }
     draw(){ ctx.fillStyle="rgba(255,255,255,.6)"; ctx.fillRect(this.x,this.y,2,2); }
   }
 
-  // ====== Projétil ======
+  // Projétil
   class Bullet{
-    constructor(x,y,target,damage, src){
-      this.x=x; this.y=y; this.target=target; this.dmg=damage; this.sp=8; this.src=src;
-    }
-    step(){
-      if(!this.target) return true;
-      const dx=this.target.x-this.x, dy=this.target.y-this.y;
-      const d=Math.hypot(dx,dy);
+    constructor(x,y,target,damage,src){ this.x=x; this.y=y; this.target=target; this.dmg=damage; this.sp=8; this.src=src; }
+    step(){ if(!this.target) return true; const dx=this.target.x-this.x, dy=this.target.y-this.y, d=Math.hypot(dx,dy);
       if(d<this.sp){ this.x=this.target.x; this.y=this.target.y; return true; }
-      this.x+=dx/d*this.sp*speedMult; this.y+=dy/d*this.sp*speedMult; return false;
-    }
+      this.x+=dx/d*this.sp*speedMult; this.y+=dy/d*this.sp*speedMult; return false; }
     draw(){ ctx.fillStyle="#7dd3fc"; ctx.beginPath(); ctx.arc(this.x,this.y,3,0,Math.PI*2); ctx.fill(); }
   }
 
-  // ====== Torres (inclui Fazenda) + Caminhos ======
-  // Caminhos: A (Dano), B (Alcance/Utilidade), C (Velocidade/Crit)
+  // ================= Torres (balanceadas) =================
   class Tower{
-    constructor(gridX,gridY,type){
-      this.gx=gridX; this.gy=gridY;
-      this.x=gridX*TILE+TILE/2; this.y=gridY*TILE+TILE/2;
-      this.type=type; // basic/fast/heavy/farm
-      // base stats
-      this.range= type==="heavy"? 130 : type==="fast"? 100 : 110;
-      this.damage= type==="heavy"? 12 : type==="fast"? 5 : 8;
-      this.fireCD= type==="fast"? 18 : type==="heavy"? 70 : 35; // frames
+    constructor(gx,gy,type){
+      this.gx=gx; this.gy=gy; this.x=gx*TILE+TILE/2; this.y=gy*TILE+TILE/2;
+      this.type=type;
+      this.range= type==="heavy"? 130 : type==="fast"? 100 : 112;
+      this.damage= type==="heavy"? 14 : type==="fast"? 5 : 8;                // <= dano base ajustado
+      this.fireCD= type==="fast"? 16 : type==="heavy"? 80 : 30;             // <= cadência ajustada
       this.lastShot=0;
-      this.critChance=0.1; this.critMult=1.5;
-      this.camoDetect = (type==="fast");     // fast vê camo por padrão
-      this.leadBreak  = (type==="heavy");    // heavy quebra lead
-      this.sellValue= Math.floor(getTowerData(type).cost*0.5);
-      // caminhos
-      this.path = {A:0,B:0,C:0}; // A/B/C níveis
-      this.pathLocked = null;    // se algum caminho atingir 3+, outros travam em 2
-      // Fazenda
-      this.isFarm = (type==="farm");
-      this.incomeTimer = 0; // frames
-      this.incomeEvery = 300; // ~5s a 60fps
-      this.income = 25; // moedas por tick
+      this.critChance=0.12; this.critMult=1.6;                               // <= crítico levemente melhor
+      this.camoDetect = (type==="fast");
+      this.leadBreak  = (type==="heavy");
+      this.sellValue=Math.floor(getTowerData(type).cost*0.5);
+      this.path={A:0,B:0,C:0}; this.pathLocked=null;
+      this.isFarm=(type==="farm"); this.incomeTimer=0; this.incomeEvery=300; this.income=25;
     }
-    canShoot(){ return frame - this.lastShot >= this.fireCD; }
+    canShoot(){ return frame-this.lastShot>=this.fireCD; }
     tryShoot(){
       if(this.isFarm) return;
-      const t = findTarget(this);
-      if(t){
-        this.lastShot=frame;
-        let dmg = this.damage;
-        if(Math.random()<this.critChance) dmg = Math.round(dmg*this.critMult);
-        bullets.push(new Bullet(this.x,this.y,t,dmg,this));
-        sShoot.currentTime=0; sShoot.play();
-      }
+      const t=findTarget(this);
+      if(t){ this.lastShot=frame; let dmg=this.damage; if(Math.random()<this.critChance) dmg=Math.round(dmg*this.critMult);
+        bullets.push(new Bullet(this.x,this.y,t,dmg,this)); sShoot.currentTime=0; sShoot.play(); }
     }
     tickEconomy(){
       if(!this.isFarm) return;
-      this.incomeTimer += speedMult;
-      if(this.incomeTimer >= this.incomeEvery){
-        this.incomeTimer = 0;
-        gold += this.income;
-        updateUI();
-        log(`Fazenda gerou +${this.income} moedas.`);
-      }
+      this.incomeTimer+=speedMult;
+      if(this.incomeTimer>=this.incomeEvery){ this.incomeTimer=0; gold+=this.income; updateUI(); log(`Fazenda gerou +${this.income} moedas.`); }
     }
     draw(){
-      if(this.isFarm){
-        // desenho fazenda
-        ctx.fillStyle="#84cc16";
-        ctx.fillRect(this.x-TILE/2+6, this.y-TILE/2+10, TILE-12, TILE-12);
-        ctx.fillStyle="#a3e635"; ctx.fillRect(this.x-10, this.y-18, 20, 10);
+      if(this.isFarm){ ctx.fillStyle="#84cc16"; ctx.fillRect(this.x-TILE/2+6,this.y-TILE/2+10,TILE-12,TILE-12);
+        ctx.fillStyle="#a3e635"; ctx.fillRect(this.x-10,this.y-18,20,10);
       } else {
-        ctx.fillStyle = (this.type==="basic")?"#3b82f6":(this.type==="fast")?"#facc15":"#ef4444";
-        ctx.fillRect(this.x-TILE/2+8, this.y-TILE/2+8, TILE-16, TILE-16);
-        if(selected===this){
-          ctx.strokeStyle="#7dd3fcaa"; ctx.lineWidth=2;
-          ctx.beginPath(); ctx.arc(this.x,this.y,this.range,0,Math.PI*2); ctx.stroke();
-        }
+        ctx.fillStyle=(this.type==="basic")?"#3b82f6":(this.type==="fast")?"#facc15":"#ef4444";
+        ctx.fillRect(this.x-TILE/2+8,this.y-TILE/2+8,TILE-16,TILE-16);
+        if(selected===this){ ctx.strokeStyle="#7dd3fcaa"; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(this.x,this.y,this.range,0,Math.PI*2); ctx.stroke(); }
       }
     }
   }
 
-  // Dados de construção
   function getTowerData(id){
-    const map = {
+    const map={
       basic:{name:"Básica",cost:60,desc:"Equilíbrio entre dano e alcance."},
       fast :{name:"Rápida",cost:85,desc:"Alta cadência; detecta camuflado."},
       heavy:{name:"Pesada",cost:120,desc:"Alto dano; quebra blindado."},
@@ -285,158 +216,90 @@
     }; return map[id];
   }
 
-  // Lista de botões de construção
   function initBuildButtons(){
-    const ids=["basic","fast","heavy","farm"];
-    towersDiv.innerHTML="";
-    ids.forEach(id=>{
-      const d = getTowerData(id);
-      const b = document.createElement("button");
-      b.className="tower-btn";
-      b.innerHTML = `<b>${d.name}</b> — ${d.cost} moedas<small>${d.desc}</small>`;
-      b.onclick = ()=>{
-        if(gold<d.cost){ alert("Moedas insuficientes."); return; }
-        placing = {id,cost:d.cost};
-        selInfo.textContent = `Clique no mapa (fora do caminho) para construir ${d.name}.`;
-      };
-      towersDiv.appendChild(b);
-    });
+    const ids=["basic","fast","heavy","farm"]; towersDiv.innerHTML="";
+    ids.forEach(id=>{ const d=getTowerData(id); const b=document.createElement("button");
+      b.className="tower-btn"; b.innerHTML=`<b>${d.name}</b> — ${d.cost} moedas<small>${d.desc}</small>`;
+      b.onclick=()=>{ if(gold<d.cost){ alert("Moedas insuficientes."); return; } placing={id,cost:d.cost}; selInfo.textContent=`Clique no mapa (fora do caminho) para construir ${d.name}.`; };
+      towersDiv.appendChild(b); });
   }
 
-  // ====== Seleção / Construção ======
-  canvas.addEventListener("click", (e)=>{
-    const r = canvas.getBoundingClientRect();
-    const x = e.clientX - r.left, y = e.clientY - r.top;
-    const gx = Math.floor(x/TILE), gy = Math.floor(y/TILE);
-
-    // construir?
+  // Seleção / Construção
+  canvas.addEventListener("click",(e)=>{
+    const r=canvas.getBoundingClientRect(); const x=e.clientX-r.left, y=e.clientY-r.top;
+    const gx=Math.floor(x/TILE), gy=Math.floor(y/TILE);
     if(placing){
-      // bloquear caminho
-      if(PATH.some(p=>p.x===gx && p.y===gy)){ alert("Não pode construir no caminho!"); return; }
-      // bloquear ocupação
-      if(towers.some(t=>t.gx===gx && t.gy===gy)){ alert("Já existe torre aqui."); return; }
-      gold -= placing.cost;
-      const t = new Tower(gx,gy,placing.id);
-      towers.push(t);
-      selected = t;
-      sBuild.currentTime=0; sBuild.play();
-      placing=null; updateUI(); openMini(t);
-      log(`Construída: ${getTowerData(t.type).name}.`);
-      return;
+      if(PATH.some(p=>p.x===gx&&p.y===gy)){ alert("Não pode construir no caminho!"); return; }
+      if(towers.some(t=>t.gx===gx&&t.gy===gy)){ alert("Já existe torre aqui."); return; }
+      gold-=placing.cost; const t=new Tower(gx,gy,placing.id); towers.push(t); selected=t; sBuild.currentTime=0; sBuild.play();
+      placing=null; updateUI(); openMini(t); log(`Construída: ${getTowerData(t.type).name}.`); return;
     }
-
-    // selecionar torre
-    selected = towers.find(t=> Math.abs(t.x-x)<TILE/2 && Math.abs(t.y-y)<TILE/2) || null;
-    if(selected){ openMini(selected); sellBtn.disabled=false; }
-    else { mini.style.display="none"; sellBtn.disabled=true; }
+    selected=towers.find(t=>Math.abs(t.x-x)<TILE/2&&Math.abs(t.y-y)<TILE/2)||null;
+    if(selected){ openMini(selected); sellBtn.disabled=false; } else { mini.style.display="none"; sellBtn.disabled=true; }
   });
 
-  // ====== Upgrades de Caminho (A/B/C) ======
-  // Regra: se algum caminho chegar a nível 3+, os outros só podem ir até 2 (estilo 5-2-0).
-  function canUpgradePath(tower, pathKey){
-    const lv = tower.path[pathKey];
-    if(lv>=5) return false;
-    const others = Object.keys(tower.path).filter(k=>k!==pathKey);
-    const hasMajor = Object.values(tower.path).some(v=>v>=3);
-    if(hasMajor && others.some(k=>k!==pathKey && tower.path[pathKey]<3 && tower.path[k]>=2 && lv>=2)){
-      // já existe major em outro caminho; este não pode passar de 2
-      return false;
-    }
-    // se este já é major (>=3), os outros não podem passar de 2 (checaremos ao clicar nos outros)
+  // Caminhos (A/B/C) — A agora dá +4 de dano por nível
+  function canUpgradePath(t, k){
+    const lv=t.path[k]; if(lv>=5) return false;
+    const hasMajor=Object.values(t.path).some(v=>v>=3);
+    if(hasMajor && t.path[k]>=2 && !Object.keys(t.path).some(key=>t.path[key]>=3 && key===k)) return false;
     return true;
   }
-  function pathCost(base, lvl){ return Math.floor(base * Math.pow(1.35, lvl)); }
+  function pathCost(base,lvl){ return Math.floor(base*Math.pow(1.35,lvl)); }
 
   function openMini(t){
-    // posicionar painel próximo da torre
-    mini.style.left = (t.x + 24) + "px";
-    mini.style.top  = (t.y - 90) + "px";
-    mini.style.display="block";
-
-    // textos de caminhos
-    const A = t.path.A, B=t.path.B, C=t.path.C;
-    const aCost = pathCost(40, A), bCost = pathCost(35, B), cCost = pathCost(45, C);
-
-    const camo = t.camoDetect ? `<span class="chip">Camo ✔</span>` : `<span class="chip">Camo ✖</span>`;
-    const lead = t.leadBreak  ? `<span class="chip">Lead ✔</span>` : `<span class="chip">Lead ✖</span>`;
-
-    mini.innerHTML = `
+    mini.style.left=(t.x+24)+"px"; mini.style.top=(t.y-90)+"px"; mini.style.display="block";
+    const A=t.path.A,B=t.path.B,C=t.path.C;
+    const aCost=pathCost(40,A), bCost=pathCost(35,B), cCost=pathCost(45,C);
+    const camo=t.camoDetect?`<span class="chip">Camo ✔</span>`:`<span class="chip">Camo ✖</span>`;
+    const lead=t.leadBreak?`<span class="chip">Lead ✔</span>`:`<span class="chip">Lead ✖</span>`;
+    mini.innerHTML=`
       <div><b>Torre ${getTowerData(t.type).name}</b> — Nível Total: ${A+B+C}</div>
       <div class="muted">Caminhos: A=${A} · B=${B} · C=${C}</div>
       <div>${camo} ${lead} <span class="chip">Alcance ${t.range|0}</span> <span class="chip">Dano ${t.damage}</span></div>
       ${t.isFarm? `<div class="muted">Renda: ${t.income} / ~5s</div>` : ""}
-      <button id="uA" class="upgrade-btn">Caminho A (Dano) — +3 dano / +5% crit — <b>${aCost}</b></button>
-      <button id="uB" class="upgrade-btn">Caminho B (Alcance/Util) — +10 alcance / utilidade — <b>${bCost}</b></button>
+      <button id="uA" class="upgrade-btn">Caminho A (Dano) — +4 dano / +5% crit — <b>${aCost}</b></button>
+      <button id="uB" class="upgrade-btn">Caminho B (Alcance/Util) — +10 alcance / util — <b>${bCost}</b></button>
       <button id="uC" class="upgrade-btn">Caminho C (Velocidade) — -10% recarga — <b>${cCost}</b></button>
     `;
-
-    const uA = document.getElementById("uA");
-    const uB = document.getElementById("uB");
-    const uC = document.getElementById("uC");
-
-    uA.onclick = ()=> tryUpgradePath(t,"A",aCost, ()=>{
-      if(t.isFarm){ t.income += 8; } else { t.damage += 3; t.critChance=Math.min(0.6, t.critChance+0.05); }
-    });
-
-    uB.onclick = ()=> tryUpgradePath(t,"B",bCost, ()=>{
-      if(t.isFarm){ t.incomeEvery = Math.max(150, Math.round(t.incomeEvery*0.9)); }
-      else { t.range += 10; if(t.path.B===2) t.camoDetect=true; if(t.path.B===3) t.leadBreak=true; }
-    });
-
-    uC.onclick = ()=> tryUpgradePath(t,"C",cCost, ()=>{
-      if(t.isFarm){ /* nada aqui; renda já melhorada nos outros */ }
-      else { t.fireCD = Math.max(6, Math.round(t.fireCD*0.9)); t.critMult = Math.min(3.0, t.critMult+0.1); }
-    });
-
-    // bloquear botões se violarem regra
-    if(!canUpgradePath(t,"A")) uA.disabled=true;
-    if(!canUpgradePath(t,"B")) uB.disabled=true;
-    if(!canUpgradePath(t,"C")) uC.disabled=true;
+    document.getElementById("uA").onclick=()=>tryUpgradePath(t,"A",aCost,()=>{ if(t.isFarm){ t.income+=8; } else { t.damage+=4; t.critChance=Math.min(0.6,t.critChance+0.05); }});
+    document.getElementById("uB").onclick=()=>tryUpgradePath(t,"B",bCost,()=>{ if(t.isFarm){ t.incomeEvery=Math.max(150,Math.round(t.incomeEvery*0.9)); } else { t.range+=10; if(t.path.B===2) t.camoDetect=true; if(t.path.B===3) t.leadBreak=true; }});
+    document.getElementById("uC").onclick=()=>tryUpgradePath(t,"C",cCost,()=>{ if(!t.isFarm){ t.fireCD=Math.max(6,Math.round(t.fireCD*0.9)); t.critMult=Math.min(3.0,t.critMult+0.1); }});
+    if(!canUpgradePath(t,"A")) document.getElementById("uA").disabled=true;
+    if(!canUpgradePath(t,"B")) document.getElementById("uB").disabled=true;
+    if(!canUpgradePath(t,"C")) document.getElementById("uC").disabled=true;
   }
 
-  function tryUpgradePath(t, key, cost, apply){
-    if(gold < cost){ alert("Moedas insuficientes."); return; }
-    // regra de caminhos
-    if(!canUpgradePath(t, key)){ alert("Limite de caminhos atingido (5-2-0)."); return; }
-    t.path[key] += 1;
-    // trava outros em 2 quando algum chega a 3
-    if(t.path[key]===3) t.pathLocked = key;
-    gold -= cost; apply(); updateUI(); openMini(t);
-    log(`Upgrade aplicado: Caminho ${key} → nível ${t.path[key]}.`);
+  function tryUpgradePath(t,k,cost,apply){
+    if(gold<cost){ alert("Moedas insuficientes."); return; }
+    if(!canUpgradePath(t,k)){ alert("Limite de caminhos atingido (5-2-0)."); return; }
+    t.path[k]+=1; if(t.path[k]===3) t.pathLocked=k; gold-=cost; apply(); updateUI(); openMini(t);
+    log(`Upgrade: Caminho ${k} → nível ${t.path[k]}.`);
   }
 
-  // Vender torre
-  sellBtn.onclick = ()=>{
+  // Vender
+  sellBtn.onclick=()=>{
     if(!selected) return;
-    const val = selected.sellValue + (selected.path.A+selected.path.B+selected.path.C)*15;
-    gold += val;
-    towers = towers.filter(tt=>tt!==selected);
-    log(`Torre vendida por +${val} moedas.`);
-    selected=null; mini.style.display="none"; sellBtn.disabled=true; updateUI();
+    const val=selected.sellValue+(selected.path.A+selected.path.B+selected.path.C)*15;
+    gold+=val; towers=towers.filter(tt=>tt!==selected);
+    log(`Torre vendida por +${val} moedas.`); selected=null; mini.style.display="none"; sellBtn.disabled=true; updateUI();
   };
 
-  // ====== Lógica de combate ======
+  // Alvo
   function findTarget(t){
-    // simples: primeiro inimigo no alcance
-    for(const e of enemies){
-      if(e.hp>0 && dist(t.x,t.y,e.x,e.y) <= t.range){
-        // camo/lead filtrados em takeDamage; disparamos mesmo assim
-        return e;
-      }
-    }
+    for(const e of enemies){ if(e.hp>0 && dist(t.x,t.y,e.x,e.y)<=t.range){ return e; } }
     return null;
   }
 
-  // ====== Waves com variedades & elites/boss ======
-  let spawning = false;
+  // =============== Waves (balanceadas) ===============
   function spawnWave(n){
-    spawning = true;
-    const total = 6 + n*2;
-    let spawned = 0;
+    spawning=true;
+    const total = 8 + Math.floor(n*1.2); // <= MENOS inimigos
+    let spawned=0;
 
-    const spawnOne = ()=>{
+    const spawnOne=()=>{
       if(spawned>=total){ spawning=false; return; }
-      // decide tipo
+      // tipo
       let kind="normal";
       const r=Math.random();
       if(n>=5 && r<0.15) kind="camo";
@@ -445,116 +308,77 @@
       else if(r<0.12) kind="fast";
 
       // elites a cada 10 waves
-      if(n%10===0 && (spawned%8===0)){
-        kind="fort";
-      }
+      if(n%10===0 && (spawned%8===0)){ kind="fort"; }
+
+      const e=new Enemy(n,kind);
       // boss final
       if(n===maxWave && spawned===0){
-        kind="fort";
+        e.hpMax=Math.round(e.hpMax*4); e.hp=e.hpMax; e.speed*=0.85; e.radius=18;
       }
 
-      const e = new Enemy(n, kind);
-      if(n===maxWave){ e.hp*=5; e.hpMax=e.hp; e.speed*=0.9; e.radius=16; } // boss
       enemies.push(e); spawned++;
-      setTimeout(spawnOne, Math.max(120, 500 - n*6)/speedMult);
+      setTimeout(spawnOne, Math.max(160, 540 - n*8)/speedMult); // <= MAIS RESPIRO ENTRE INIMIGOS
     };
     spawnOne();
   }
 
-  // ====== Controles topo ======
-  startBtn.onclick = ()=>{
+  // Controles
+  startBtn.onclick=()=>{
     if(spawning) return;
-    wave++;
-    if(wave>maxWave){ log("Você já venceu todas as waves!"); wave=maxWave; return; }
-    log(`Iniciando Wave ${wave}...`);
-    spawnWave(wave); updateUI();
+    wave++; if(wave>maxWave){ log("Você já venceu todas as waves!"); wave=maxWave; return; }
+    log(`Iniciando Wave ${wave}...`); spawnWave(wave); updateUI();
   };
-  autoBtn.onclick = ()=>{
-    autoMode = !autoMode; autoBtn.textContent = "Auto: " + (autoMode?"On":"Off");
-  };
-  speedBtn.onclick = ()=>{
-    speedMult = (speedMult===1?3: (speedMult===3?5:1));
-    speedBtn.textContent = "x"+speedMult; speedLbl.textContent="x"+speedMult;
-  };
+  autoBtn.onclick=()=>{ autoMode=!autoMode; autoBtn.textContent="Auto: "+(autoMode?"On":"Off"); };
+  speedBtn.onclick=()=>{ speedMult=(speedMult===1?3:(speedMult===3?5:1)); speedBtn.textContent="x"+speedMult; speedLbl.textContent="x"+speedMult; };
 
-  // ====== Atualização UI ======
-  function updateUI(){
-    waveEl.textContent=wave; livesEl.textContent=lives; goldEl.textContent=gold;
-  }
+  // UI
+  function updateUI(){ waveEl.textContent=wave; livesEl.textContent=lives; goldEl.textContent=gold; }
 
-  // ====== Loop ======
+  // Loop
+  class LoopBullet{} // placeholder (só pra facilitar ctrl+f)
   function gameLoop(){
     frame++;
-
-    // screen shake leve
-    let ox=0, oy=0;
-    if(screenShakeT>0){ ox = (Math.random()*2-1)*2; oy=(Math.random()*2-1)*2; screenShakeT--; }
+    let ox=0,oy=0; if(screenShakeT>0){ ox=(Math.random()*2-1)*2; oy=(Math.random()*2-1)*2; screenShakeT--; }
     ctx.save(); ctx.translate(ox,oy);
 
     drawPath();
-
-    // torres
     for(const t of towers){ t.draw(); }
 
-    // inimigos
     for(let i=enemies.length-1;i>=0;i--){
-      const e = enemies[i];
-      const alive = e.move();
-      e.draw();
-      if(!alive){ // chegou ao fim
-        enemies.splice(i,1);
-        lives--; updateUI();
-        log("Um inimigo passou! -1 vida.");
-        if(lives<=0){
-          alert("Game Over!");
-          resetGame(); ctx.restore(); requestAnimationFrame(gameLoop); return;
-        }
+      const e=enemies[i]; const alive=e.move(); e.draw();
+      if(!alive){ enemies.splice(i,1); lives--; updateUI(); log("Um inimigo passou! -1 vida.");
+        if(lives<=0){ alert("Game Over!"); resetGame(); ctx.restore(); requestAnimationFrame(gameLoop); return; }
       }
     }
 
-    // balas
     for(let i=bullets.length-1;i>=0;i--){
-      const b = bullets[i];
-      const hit = b.step();
-      b.draw();
+      const b=bullets[i]; const hit=b.step(); b.draw();
       if(hit){
-        if(b.target && b.target.takeDamage(b.dmg, b.src)){
-          // morreu
+        if(b.target && b.target.takeDamage(b.dmg,b.src)){
           sDie.currentTime=0; sDie.play();
-          gold += 10; updateUI();
+          gold += 12; // <= RECOMPENSA MAIOR
+          updateUI();
           enemies = enemies.filter(e=>e!==b.target);
-          log("Inimigo derrotado! +10 moedas.");
+          log("Inimigo derrotado! +12 moedas.");
         }
         bullets.splice(i,1);
       }
     }
 
-    // partículas
-    for(let i=particles.length-1;i>=0;i--){
-      particles[i].update(); particles[i].draw();
-      if(particles[i].life<=0) particles.splice(i,1);
-    }
+    for(let i=particles.length-1;i>=0;i--){ particles[i].update(); particles[i].draw(); if(particles[i].life<=0) particles.splice(i,1); }
 
-    // disparo torres + economia
-    for(const t of towers){
-      if(!t.isFarm && t.canShoot()) t.tryShoot();
-      if(t.isFarm) t.tickEconomy();
-    }
+    for(const t of towers){ if(!t.isFarm && t.canShoot()) t.tryShoot(); if(t.isFarm) t.tickEconomy(); }
 
-    // fim da wave
     if(!spawning && enemies.length===0){
       if(wave>0) log(`Wave ${wave} finalizada!`);
       if(autoMode && wave<maxWave) startBtn.click();
-      if(wave===maxWave && enemies.length===0 && !spawning){
-        log("🏆 Você venceu! Boss derrotado.");
-      }
+      if(wave===maxWave && enemies.length===0 && !spawning){ log("🏆 Você venceu! Boss derrotado."); }
     }
 
     ctx.restore();
     requestAnimationFrame(gameLoop);
   }
 
-  // ====== Reset ======
   function resetGame(){
     wave=0; lives=20; gold=150;
     enemies=[]; bullets=[]; towers=[]; particles=[];
@@ -562,18 +386,13 @@
     updateUI(); mini.style.display="none"; sellBtn.disabled=true;
   }
 
-  // ====== Start ======
-  initBuildButtons();
-  updateUI();
+  // Init
+  initBuildButtons(); updateUI();
   log("Dica: Construa uma Fazenda cedo para acelerar sua economia!");
   requestAnimationFrame(gameLoop);
 
-  // fecha mini se clicar fora
-  window.addEventListener("mousedown",(e)=>{
-    if(e.target.closest("#upgradeMiniPanel")) return;
-    if(e.target===canvas) return;
-    mini.style.display="none";
-  });
+  // fechar mini
+  window.addEventListener("mousedown",(e)=>{ if(e.target.closest("#upgradeMiniPanel")) return; if(e.target===canvas) return; mini.style.display="none"; });
 
 })();
 </script>
