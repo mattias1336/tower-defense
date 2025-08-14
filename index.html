@@ -3,20 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Tower Defense Completo</title>
+<title>Tower Defense Realista</title>
 <style>
-  body{margin:0;font-family:Arial;background:#0b1220;color:#e6eef6}
-  #game{display:grid;grid-template-columns:820px 340px;gap:18px;padding:18px;max-width:1180px;margin:20px auto}
-  canvas{border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.6);background:#87ceeb}
-  .panel{background:#0f1724;padding:14px;border-radius:12px;box-shadow:inset 0 1px 0 rgba(255,255,255,.02)}
-  h2{margin:0 0 8px 0;font-size:16px}
-  .row{display:flex;gap:8px;align-items:center}
-  button{background:#7dd3fc;border:none;padding:8px 10px;border-radius:8px;cursor:pointer;color:#000;font-weight:bold}
-  .muted{color:#94a3b8;font-size:13px}
-  .tower-btn{display:block;margin:8px 0;padding:8px;border-radius:8px;background:#0b2130;border:1px solid rgba(255,255,255,.03);cursor:pointer;transition:background 0.3s}
-  .tower-btn:hover{background:#123b56}
-  .upgrade-btn{background:#1e293b;color:white;margin:4px 0;width:100%;border:none;border-radius:6px;padding:6px;cursor:pointer}
-  .upgrade-btn:hover{background:#334155}
+body{margin:0;font-family:Arial;background:#0b1220;color:#e6eef6}
+#game{display:grid;grid-template-columns:820px 340px;gap:18px;padding:18px;max-width:1180px;margin:20px auto}
+canvas{border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.6);background:#87ceeb}
+.panel{background:#0f1724;padding:14px;border-radius:12px;box-shadow:inset 0 1px 0 rgba(255,255,255,.02)}
+h2{margin:0 0 8px 0;font-size:16px}
+.row{display:flex;gap:8px;align-items:center}
+button{background:#7dd3fc;border:none;padding:8px 10px;border-radius:8px;cursor:pointer;color:#000;font-weight:bold}
+.muted{color:#94a3b8;font-size:13px}
+.tower-btn{display:block;margin:8px 0;padding:8px;border-radius:8px;background:#0b2130;border:1px solid rgba(255,255,255,.03);cursor:pointer;transition:background 0.3s}
+.tower-btn:hover{background:#123b56}
+.upgrade-btn{background:#1e293b;color:white;margin:4px 0;width:100%;border:none;border-radius:6px;padding:6px;cursor:pointer}
+.upgrade-btn:hover{background:#334155}
 </style>
 </head>
 <body>
@@ -45,58 +45,67 @@
     <div id="log" class="muted small" style="height:180px;overflow:auto;background:#07131a;padding:8px;border-radius:8px;margin-top:8px"></div>
   </div>
 </div>
+
 <script>
 // --- CONFIGURAÇÃO ---
-const canvas = document.getElementById("c");
-const ctx = canvas.getContext("2d");
+const canvas=document.getElementById("c");
+const ctx=canvas.getContext("2d");
 
-let wave = 0;
-let lives = 20;
-let gold = 100;
-let autoWave = false;
-let gameSpeed = 1;
-const maxWave = 60;
+let wave=0,lives=20,gold=100,autoWave=false,gameSpeed=1;
+const maxWave=60;
 
-const pathColor = "#654321";
-const grassColor = "#4caf50";
-
-// Caminho curvo (pontos de referência)
-const path = [
+const path=[
   {x:0,y:260},{x:200,y:260},{x:200,y:400},{x:600,y:400},{x:600,y:200},{x:820,y:200}
 ];
 
-// Torres
-let towers = [];
-let selectedTower = null;
-const towerTypes = [
-  {name:"Canhão",cost:50,range:80,dmg:10,spd:1,crit:0.1,critDmg:2},
-  {name:"Arco",cost:70,range:120,dmg:6,spd:2,crit:0.2,critDmg:3},
-  {name:"Mágica",cost:100,range:150,dmg:15,spd:0.8,crit:0.15,critDmg:2.5}
+// --- CARREGAR SPRITES ---
+const sprites = {
+  towerCannon: new Image(), towerBow: new Image(), towerMagic: new Image(),
+  enemyNormal: new Image(), enemyElite: new Image(), enemyBoss: new Image(),
+  projectile: new Image()
+};
+sprites.towerCannon.src='sprites/tower_cannon.png';
+sprites.towerBow.src='sprites/tower_bow.png';
+sprites.towerMagic.src='sprites/tower_magic.png';
+sprites.enemyNormal.src='sprites/enemy_normal.png';
+sprites.enemyElite.src='sprites/enemy_elite.png';
+sprites.enemyBoss.src='sprites/enemy_boss.png';
+sprites.projectile.src='sprites/projectile.png';
+
+// --- SONS ---
+const sounds = {
+  shoot:new Audio('sounds/shoot.mp3'),
+  death:new Audio('sounds/death.mp3'),
+  wave:new Audio('sounds/wave.mp3')
+};
+
+// --- TORRES ---
+let towers=[],selectedTower=null;
+const towerTypes=[
+  {name:"Canhão",cost:50,range:80,dmg:10,spd:1,crit:0.1,critDmg:2,sprite:sprites.towerCannon},
+  {name:"Arco",cost:70,range:120,dmg:6,spd:2,crit:0.2,critDmg:3,sprite:sprites.towerBow},
+  {name:"Mágica",cost:100,range:150,dmg:15,spd:0.8,crit:0.15,critDmg:2.5,sprite:sprites.towerMagic}
 ];
 
-// Inimigos
-let enemies = [];
+// --- INIMIGOS ---
+let enemies=[];
 class Enemy{
   constructor(x,y,hp,speed,type){
     this.x=x; this.y=y; this.hp=hp; this.maxHp=hp; this.speed=speed;
     this.pathIndex=0; this.dead=false; this.damagePopups=[];
     this.type=type;
+    this.sprite=type==="boss"?sprites.enemyBoss:type==="elite"?sprites.enemyElite:sprites.enemyNormal;
   }
   move(){
-    if(this.pathIndex>=path.length){return;}
-    let target = path[this.pathIndex];
-    let dx = target.x - this.x;
-    let dy = target.y - this.y;
-    let dist = Math.sqrt(dx*dx+dy*dy);
+    if(this.pathIndex>=path.length) return;
+    let target=path[this.pathIndex];
+    let dx=target.x-this.x, dy=target.y-this.y;
+    let dist=Math.sqrt(dx*dx+dy*dy);
     if(dist<1){this.pathIndex++; if(this.pathIndex>=path.length){lives--; this.dead=true;}} 
-    else {this.x += dx/dist*this.speed*gameSpeed; this.y += dy/dist*this.speed*gameSpeed;}
+    else {this.x+=dx/dist*this.speed*gameSpeed; this.y+=dy/dist*this.speed*gameSpeed;}
   }
   draw(){
-    // corpo
-    ctx.fillStyle=this.type==="boss"?"darkred":this.type==="elite"?"orange":"red";
-    ctx.beginPath();
-    ctx.arc(this.x,this.y,12,0,Math.PI*2);
-    ctx.fill();
+    ctx.drawImage(this.sprite,this.x-16,this.y-16,32,32);
     // HP
     ctx.fillStyle="black"; ctx.fillRect(this.x-15,this.y-20,30,5);
     ctx.fillStyle="lime"; ctx.fillRect(this.x-15,this.y-20,30*(this.hp/this.maxHp),5);
@@ -109,10 +118,26 @@ class Enemy{
   }
 }
 
+// --- PROJÉTEIS ---
+let projectiles=[];
+class Projectile{
+  constructor(x,y,target,dmg){
+    this.x=x; this.y=y; this.target=target; this.dmg=dmg;
+  }
+  move(){
+    let dx=this.target.x-this.x, dy=this.target.y-this.y;
+    let dist=Math.sqrt(dx*dx+dy*dy);
+    if(dist<2){this.target.hp-=this.dmg; this.target.damagePopups.push({dmg:this.dmg,x:this.target.x,y:this.target.y,alpha:1});
+      sounds.death.play(); return true;} 
+    else{this.x+=dx/dist*6*gameSpeed; this.y+=dy/dist*6*gameSpeed;}
+  }
+  draw(){ctx.drawImage(sprites.projectile,this.x-8,this.y-8,16,16);}
+}
+
 // --- FUNÇÕES ---
 function spawnWave(){
-  wave++;
-  document.getElementById("wave").textContent=wave;
+  wave++; document.getElementById("wave").textContent=wave;
+  sounds.wave.play();
   for(let i=0;i<10;i++){
     let type="normal";
     if(wave%10===0) type="elite";
@@ -125,46 +150,30 @@ function spawnWave(){
 
 function drawMap(){
   // fundo
-  ctx.fillStyle=grassColor; ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle="#4caf50"; ctx.fillRect(0,0,canvas.width,canvas.height);
   // caminho
-  ctx.strokeStyle=pathColor; ctx.lineWidth=40;
+  ctx.strokeStyle="#654321"; ctx.lineWidth=40;
   ctx.beginPath(); ctx.moveTo(path[0].x,path[0].y);
   for(let i=1;i<path.length;i++) ctx.lineTo(path[i].x,path[i].y);
   ctx.stroke();
   // árvores decorativas
   ctx.fillStyle="#228B22"; for(let i=0;i<10;i++){ctx.beginPath(); ctx.arc(50+i*80,50,20,0,Math.PI*2); ctx.fill();}
   // torres
-  towers.forEach(t=>{
-    ctx.fillStyle="gray"; ctx.beginPath(); ctx.arc(t.x,t.y,15,0,Math.PI*2); ctx.fill();
-  });
+  towers.forEach(t=>{ctx.drawImage(t.type.sprite,t.x-16,t.y-16,32,32);});
   // inimigos
   enemies.forEach(e=>{if(!e.dead)e.draw();});
+  // projéteis
+  projectiles.forEach((p,i)=>{if(p.move()) projectiles.splice(i,1); else p.draw();});
 }
 
-function gameLoop(){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  drawMap();
-  enemies.forEach(e=>{if(!e.dead)e.move();});
-  requestAnimationFrame(gameLoop);
-}
+function gameLoop(){ctx.clearRect(0,0,canvas.width,canvas.height); drawMap(); requestAnimationFrame(gameLoop);}
 
 // --- EVENTOS ---
 canvas.addEventListener("click",e=>{
-  const rect = canvas.getBoundingClientRect();
-  const x = e.clientX-rect.left;
-  const y = e.clientY-rect.top;
-  if(selectedTower){
-    selectedTower.x=x; selectedTower.y=y;
-    selectedTower=null;
-    document.getElementById("upgradePanel").innerHTML="";
-  } else {
-    // coloca nova torre
-    let tType = towerTypes[0];
-    if(gold>=tType.cost){
-      gold-=tType.cost; document.getElementById("gold").textContent=gold;
-      towers.push({x,y,type:tType,level:1});
-    }
-  }
+  const rect=canvas.getBoundingClientRect();
+  const x=e.clientX-rect.left;
+  const y=e.clientY-rect.top;
+  if(selectedTower){towers.push({x,y,type:selectedTower,level:1}); selectedTower=null; document.getElementById("upgradePanel").innerHTML="";}
 });
 
 document.getElementById("start").addEventListener("click",()=>spawnWave());
@@ -173,14 +182,14 @@ document.getElementById("speed").addEventListener("click",()=>{
 });
 document.getElementById("auto").addEventListener("click",()=>{
   autoWave=!autoWave; document.getElementById("auto").textContent="Auto: "+(autoWave?"On":"Off");
-  if(autoWave){setInterval(()=>{if(enemies.length===0) spawnWave();},2000);}
+  if(autoWave) setInterval(()=>{if(enemies.length===0) spawnWave();},2000);
 });
 
 // painel torres
 const towersDiv=document.getElementById("towers");
-towerTypes.forEach((tt,i)=>{
+towerTypes.forEach(tt=>{
   let btn=document.createElement("button"); btn.className="tower-btn"; btn.textContent=tt.name+" ($"+tt.cost+")";
-  btn.onclick=()=>{selectedTower={type:tt,level:1}; document.getElementById("selInfo").textContent="Clique no mapa para colocar "+tt.name;};
+  btn.onclick=()=>{selectedTower=tt; document.getElementById("selInfo").textContent="Clique no mapa para colocar "+tt.name;};
   towersDiv.appendChild(btn);
 });
 
