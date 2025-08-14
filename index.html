@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Tower Defense Realista</title>
+<title>Tower Defense Realista Completo</title>
 <style>
 body{margin:0;font-family:Arial;background:#0b1220;color:#e6eef6}
 #game{display:grid;grid-template-columns:820px 340px;gap:18px;padding:18px;max-width:1180px;margin:20px auto}
@@ -148,6 +148,26 @@ function spawnWave(){
   }
 }
 
+// --- PAINEL DE UPGRADES ---
+function showUpgradePanel(tower){
+  const panel=document.getElementById("upgradePanel");
+  panel.innerHTML="";
+  const props=["dmg","range","spd","crit","critDmg"];
+  props.forEach(p=>{
+    let btn=document.createElement("button"); btn.className="upgrade-btn";
+    btn.textContent=p.toUpperCase()+": "+tower.type[p]+" (+10%) - 20$";
+    btn.onclick=()=>{
+      if(gold>=20){
+        gold-=20; tower.type[p]*=1.1;
+        document.getElementById("gold").textContent=gold;
+        showUpgradePanel(tower);
+      }
+    };
+    panel.appendChild(btn);
+  });
+}
+
+// --- FUNÇÕES DE DESENHO ---
 function drawMap(){
   // fundo
   ctx.fillStyle="#4caf50"; ctx.fillRect(0,0,canvas.width,canvas.height);
@@ -173,6 +193,11 @@ canvas.addEventListener("click",e=>{
   const rect=canvas.getBoundingClientRect();
   const x=e.clientX-rect.left;
   const y=e.clientY-rect.top;
+  // selecionar torre para upgrade
+  for(let t of towers){
+    if(Math.abs(t.x-x)<16 && Math.abs(t.y-y)<16){showUpgradePanel(t); return;}
+  }
+  // colocar torre
   if(selectedTower){towers.push({x,y,type:selectedTower,level:1}); selectedTower=null; document.getElementById("upgradePanel").innerHTML="";}
 });
 
